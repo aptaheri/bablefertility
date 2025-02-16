@@ -37,6 +37,7 @@ const Contact = () => {
           method="POST"
           data-netlify="true"
           className="contact-form"
+          // Adding this comment to trigger redeployment
         >
           <input type="hidden" name="form-name" value="contact" />
           <div className="contact-inputs">
