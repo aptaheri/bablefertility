@@ -1,7 +1,32 @@
 import React from 'react';
 import './Contact.css';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Contact = () => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    
+    try {
+      const formData = new FormData(form);
+      await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(formData as any).toString(),
+      });
+      
+      // Clear the form
+      form.reset();
+      
+      // Show toast message - you can use any toast library of your choice
+      // For example, with react-toastify:
+      toast.success('Thank you for your submission!');
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.');
+    }
+  };
+
   return (
     <section style={{
       padding: '5% 1rem',
@@ -37,7 +62,7 @@ const Contact = () => {
           method="POST"
           data-netlify="true"
           className="contact-form"
-          // Adding this comment to trigger redeployment
+          onSubmit={handleSubmit}
         >
           <input type="hidden" name="form-name" value="contact" />
           <div className="contact-inputs">
