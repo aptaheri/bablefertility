@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaInstagram, FaYoutube, FaFacebook } from 'react-icons/fa';
+import { FaInstagram } from 'react-icons/fa';
 
 const Nav = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -37,7 +37,7 @@ const Nav = () => {
     justifyContent: 'space-between',
     alignItems: 'center',
     transition: 'all 0.3s ease',
-    backgroundColor: isScrolled ? '#F6D34E' : 'transparent',
+    backgroundColor: isScrolled ? '#000000' : 'transparent',
     backdropFilter: isScrolled ? 'blur(10px)' : 'none',
     boxSizing: 'border-box',
   };
@@ -71,9 +71,7 @@ const Nav = () => {
   };
 
   const icons = [
-    { Component: FaInstagram, url: 'https://instagram.com' },
-    { Component: FaYoutube, url: 'https://youtube.com' },
-    { Component: FaFacebook, url: 'https://facebook.com' },
+    { Component: FaInstagram, url: 'https://www.instagram.com/bablefertility?igsh=YXV1dWRxa2VycDk5&utm_source=qr' },
   ];
 
   return (

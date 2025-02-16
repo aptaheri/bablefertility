@@ -5,7 +5,7 @@ const Hero = () => {
   return (
     <section className="hero-section">
       <div className="hero-content">
-        <h1>Modern Fertility</h1>
+        <h1>Build a family<br />on your own time.</h1>
       </div>
     </section>
   );

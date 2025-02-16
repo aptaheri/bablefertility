@@ -5,7 +5,7 @@ const Testimonial = () => {
     <section style={{
       minHeight: '60vh',
       padding: '5%',
-      background: 'linear-gradient(to right, #D4AF37, #C0C0C0)', // Gold to silver gradient
+      background: 'linear-gradient(to right, #D67676, #F4C4C4)', // Updated with darker starting pink
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -13,27 +13,27 @@ const Testimonial = () => {
       textAlign: 'center',
       color: 'white',
     }}>
-      <span style={{
-        fontSize: '4rem',
-        marginBottom: '2rem',
-      }}>
-        "
-      </span>
-      <p style={{
-        fontSize: 'clamp(1.5rem, 4vw, 3rem)',
+      <div style={{
         maxWidth: '1000px',
-        marginBottom: '2rem',
-        lineHeight: '1.4',
-        fontWeight: 'bold',
+        margin: '0 auto',
+        textAlign: 'center',
+        color: 'white',
       }}>
-        Bable's innovative approach to fertility care transformed our journey. 
-        Their personalized support and cutting-edge technology gave us hope 
-        when we needed it most.
-      </p>
+        <p style={{
+          fontSize: 'clamp(1.5rem, 4vw, 3rem)',
+          maxWidth: '1000px',
+          marginBottom: '0.5rem',
+          lineHeight: '1.2',
+          fontWeight: 'bold',
+        }}>
+          "I suffered from depression because no one knew the emotional toll of the therapy and there was no way to get in touch with doctor other than over phone."
+        </p>
+      </div>
       <span style={{
         fontSize: '1.2rem',
+        marginTop: '1rem',
       }}>
-        -Sarah Mitchell
+        - Sarah Mitchell
       </span>
     </section>
   );

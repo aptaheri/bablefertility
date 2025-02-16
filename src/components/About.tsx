@@ -3,18 +3,18 @@ import React from 'react';
 const About = () => {
   return (
     <section style={{
-      minHeight: '100vh',
+      minHeight: 'fit-content',
       display: 'flex',
       flexDirection: 'column',
-      padding: '8% 10%',
+      padding: '8% 10% 4%',
       backgroundColor: 'black',
       color: 'white',
     }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1.2fr',
-        gap: '8rem',
-        marginBottom: '8rem',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 500px), 1fr))',
+        gap: '4rem',
+        marginBottom: '4rem',
       }}>
         <h2 style={{
           fontSize: 'clamp(3rem, 6vw, 5rem)',
@@ -22,7 +22,7 @@ const About = () => {
           margin: 0,
           fontWeight: 'bold',
         }}>
-          The first fertility clinic built around you.
+          We are the first fertility clinic built around you. 
         </h2>
         <p style={{
           fontSize: 'clamp(1.2rem, 2vw, 1.8rem)',
@@ -31,38 +31,32 @@ const About = () => {
           alignSelf: 'center',
           paddingRight: '2rem',
         }}>
-          Bable is a reimaged fertility clinic. One where the patient is first. Everything is personalized, predictive, and always available. Your journey should be exciting, not full of stress.
+          Bable is a modern fertility clinic, seamlessly blending in-person and remote care with predictive insights, concierge-level coordination, and 24/7 support—turning your path to parenthood into a stress-free, empowering experience.
         </p>
       </div>
       
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))',
         gap: '2rem',
         position: 'relative',
-        width: '90%',
+        width: '100vw',
         margin: '0 auto',
+        marginLeft: 'calc(-50vw + 50%)',
+        marginRight: 'calc(-50vw + 50%)',
+        marginBottom: '0',
+        overflow: 'hidden',
       }}>
         <img 
-          src="/pink_pineapple.png" 
+          src="/section2_1.png" 
           alt="Fertility Care" 
           style={{ 
-            width: '100%', 
-            height: 'auto',
-            transform: 'translateY(-4rem)',
+            width: '100%',
+            height: '60vh',
+            objectFit: 'cover',
+            objectPosition: 'center',
             position: 'relative',
             zIndex: 2,
-          }} 
-        />
-        <img 
-          src="/water_pineapple.png" 
-          alt="Modern Science" 
-          style={{ 
-            width: '100%', 
-            height: 'auto',
-            transform: 'translateY(4rem)',
-            position: 'relative',
-            zIndex: 1,
           }} 
         />
       </div>
