@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './Auth.module.css';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { User } from '../../types'; // Remove UserRole since it's unused
 
 export default function Signup() {
   const [firstName, setFirstName] = useState('');
@@ -20,7 +22,25 @@ export default function Signup() {
     try {
       setError('');
       setLoading(true);
-      await signup(email, password, userType);
+      
+      // First create the authentication user
+      const userCredential = await signup(email, password, userType);
+      
+      // Then create the user document in Firestore
+      const userData: User = {
+        id: userCredential.user.uid,
+        email,
+        firstName,
+        lastName,
+        role: 'NURSE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Add the user document to Firestore
+      const db = getFirestore();
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+      
       navigate('/dashboard');
     } catch (err) {
       setError('Failed to create an account');
