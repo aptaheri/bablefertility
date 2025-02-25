@@ -38,8 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }
 
-  function login(email: string, password: string) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function login(email: string, password: string) {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    // Get the ID token
+    const idToken = await result.user.getIdToken();
+    console.log('ID Token:', idToken);
+    return result;
   }
 
   function logout() {
