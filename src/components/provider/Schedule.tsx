@@ -130,6 +130,7 @@ const LoadingState = styled.div`
   color: #6b7280;
 `;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ErrorState = styled.div`
   background: #fee2e2;
   color: #991b1b;
@@ -266,7 +267,7 @@ const Schedule = () => {
   // Fetch appointments when selected patient changes or when component mounts
   useEffect(() => {
     fetchAppointments();
-  }, [currentUser, selectedPatient]);
+  }, [currentUser, selectedPatient, fetchAppointments]);
 
   const handleDateChange = (value: Value) => {
     if (value instanceof Date) {
