@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import ProviderSidebar from './ProviderSidebar';
 import styled from '@emotion/styled';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { User } from '../../types';
+
+export const SelectedPatientContext = createContext<{
+  selectedPatient: User | null;
+  setSelectedPatient: (patient: User | null) => void;
+}>({
+  selectedPatient: null,
+  setSelectedPatient: () => {},
+});
+
+export const useSelectedPatient = () => useContext(SelectedPatientContext);
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -98,10 +110,46 @@ const UserInfo = styled.div`
   }
 `;
 
+const PatientSelect = styled.select`
+  padding: 0.5rem;
+  margin-right: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  min-width: 200px;
+`;
+
+const HeaderContent = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
 const ProviderLayout = () => {
   const { currentUser, logout } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [patients, setPatients] = useState<User[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<User | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      const db = getFirestore();
+      const q = query(
+        collection(db, 'users'),
+        where('role', '==', 'PATIENT')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const patientData: User[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as User;
+        patientData.push({ ...data, id: doc.id });
+      });
+      setPatients(patientData);
+    };
+
+    fetchPatients();
+  }, []);
 
   if (!currentUser) {
     return <Navigate to="/login" />;
@@ -120,25 +168,45 @@ const ProviderLayout = () => {
     return email.split('@')[0].slice(0, 2).toUpperCase();
   };
 
+  const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const patient = patients.find(p => p.id === e.target.value) || null;
+    setSelectedPatient(patient);
+  };
+
   return (
-    <LayoutContainer>
-      <ProviderSidebar />
-      <MainContent>
-        <Header>
-          <ProfileButton onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
-            <Avatar>{currentUser.email ? getInitials(currentUser.email) : 'U'}</Avatar>
-          </ProfileButton>
-          <ProfileMenu isOpen={isProfileMenuOpen}>
-            <UserInfo>
-              <h3>{currentUser.email}</h3>
-              <p>Provider</p>
-            </UserInfo>
-            <MenuItem onClick={handleLogout}>Logout</MenuItem>
-          </ProfileMenu>
-        </Header>
-        <Outlet />
-      </MainContent>
-    </LayoutContainer>
+    <SelectedPatientContext.Provider value={{ selectedPatient, setSelectedPatient }}>
+      <LayoutContainer>
+        <ProviderSidebar />
+        <MainContent>
+          <Header>
+            <HeaderContent>
+              <PatientSelect
+                value={selectedPatient?.id || ''}
+                onChange={handlePatientChange}
+              >
+                <option value="">Select Patient</option>
+                {patients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.firstName} {patient.lastName}
+                  </option>
+                ))}
+              </PatientSelect>
+              <ProfileButton onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
+                <Avatar>{currentUser.email ? getInitials(currentUser.email) : 'U'}</Avatar>
+              </ProfileButton>
+            </HeaderContent>
+            <ProfileMenu isOpen={isProfileMenuOpen}>
+              <UserInfo>
+                <h3>{currentUser.email}</h3>
+                <p>Provider</p>
+              </UserInfo>
+              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+            </ProfileMenu>
+          </Header>
+          <Outlet />
+        </MainContent>
+      </LayoutContainer>
+    </SelectedPatientContext.Provider>
   );
 };
 
