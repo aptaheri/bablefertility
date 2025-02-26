@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../contexts/AuthContext';
 import Calendar from 'react-calendar';
@@ -206,7 +206,7 @@ const Schedule = () => {
   const { currentUser } = useAuth();
   const { selectedPatient } = useSelectedPatient();
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!currentUser || !selectedPatient) {
       setAllAppointments([]);
       return;
@@ -237,7 +237,7 @@ const Schedule = () => {
     } finally {
       setFetchingAppointments(false);
     }
-  };
+  }, [currentUser, selectedPatient]);
 
   // Filter appointments based on selected date
   const filteredAppointments = useMemo(() => {
