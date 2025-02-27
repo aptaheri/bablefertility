@@ -29,9 +29,8 @@ export default function Login() {
   return (
     <div className={styles.authContainer}>
       <div className={styles.logoContainer}>
-        <img src="/logo.png" alt="Logo" className={styles.logo} />
+        <img src="/icon.png" alt="Logo" className={styles.logo} />
         <h1>Bable Fertility</h1>
-        <h2>Let's get started!</h2>
         <p>Login to your account</p>
       </div>
 

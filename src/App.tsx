@@ -31,10 +31,12 @@ function HomePage() {
 function AppContent() {
   const location = useLocation();
   const isProviderRoute = location.pathname.startsWith('/provider');
+  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup';
+  const shouldShowNavAndFooter = !isProviderRoute && !isAuthRoute;
 
   return (
     <div className="App">
-      {!isProviderRoute && <Nav />}
+      {shouldShowNavAndFooter && <Nav />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
@@ -49,7 +51,7 @@ function AppContent() {
           <Route path="billing" element={<div>Billing (Coming Soon)</div>} />
         </Route>
       </Routes>
-      {!isProviderRoute && <Footer />}
+      {shouldShowNavAndFooter && <Footer />}
       <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );

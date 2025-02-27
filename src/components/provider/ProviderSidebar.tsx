@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const SidebarContainer = styled.nav`
   width: 250px;
-  background-color: #fef9c3;
+  background-color: #FFD900;
   padding: 2rem 0;
   min-height: 100vh;
   display: flex;

@@ -1,10 +1,19 @@
 .authContainer {
-  max-width: 400px;
+  max-width: 480px;
+  width: 90%;
   margin: 2rem auto;
-  padding: 2rem;
+  padding: 2.5rem;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .authContainer {
+    width: 95%;
+    max-width: 400px;
+    padding: 2rem;
+  }
 }
 
 .logoContainer {
@@ -42,11 +51,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  text-align: left;
 }
 
 .inputGroup label {
   font-weight: 500;
   color: #333;
+  text-align: left;
 }
 
 .inputGroup input {

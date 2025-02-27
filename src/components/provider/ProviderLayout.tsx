@@ -3,12 +3,18 @@ import { Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import ProviderSidebar from './ProviderSidebar';
 import styled from '@emotion/styled';
-import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
-import { User } from '../../types';
+import { toast } from 'react-toastify';
+
+interface PatientData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 export const SelectedPatientContext = createContext<{
-  selectedPatient: User | null;
-  setSelectedPatient: (patient: User | null) => void;
+  selectedPatient: PatientData | null;
+  setSelectedPatient: (patient: PatientData | null) => void;
 }>({
   selectedPatient: null,
   setSelectedPatient: () => {},
@@ -127,29 +133,50 @@ const HeaderContent = styled.div`
 const ProviderLayout = () => {
   const { currentUser, logout } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [patients, setPatients] = useState<User[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<User | null>(null);
+  const [patients, setPatients] = useState<PatientData[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPatients = async () => {
-      const db = getFirestore();
-      const q = query(
-        collection(db, 'users'),
-        where('role', '==', 'PATIENT')
-      );
+      if (!currentUser) return;
 
-      const querySnapshot = await getDocs(q);
-      const patientData: User[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as User;
-        patientData.push({ ...data, id: doc.id });
-      });
-      setPatients(patientData);
+      try {
+        setLoading(true);
+        const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/patients/all', {
+          headers: {
+            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('API Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: errorData
+          });
+          throw new Error(`Failed to fetch patients: ${errorData.error || response.statusText}`);
+        }
+
+        const { success, data } = await response.json();
+        console.log('Patients API Response:', { success, patientCount: data?.length, data });
+        if (success && Array.isArray(data)) {
+          setPatients(data);
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (err) {
+        console.error('Error fetching patients:', err);
+        toast.error('Unable to load patients. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchPatients();
-  }, []);
+  }, [currentUser]);
 
   if (!currentUser) {
     return <Navigate to="/login" />;
@@ -183,8 +210,9 @@ const ProviderLayout = () => {
               <PatientSelect
                 value={selectedPatient?.id || ''}
                 onChange={handlePatientChange}
+                disabled={loading}
               >
-                <option value="">Select Patient</option>
+                <option value="">{loading ? 'Loading patients...' : 'Select Patient'}</option>
                 {patients.map((patient) => (
                   <option key={patient.id} value={patient.id}>
                     {patient.firstName} {patient.lastName}

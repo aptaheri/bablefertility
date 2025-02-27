@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedPatient } from './ProviderLayout';
+import { toast } from 'react-toastify';
 
 const PageTitle = styled.h1`
   margin-bottom: 2rem;
@@ -79,75 +82,138 @@ const ActionButton = styled.button`
   }
 `;
 
+const LoadingState = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 1.2rem;
+  color: #6b7280;
+`;
+
+const ErrorState = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: #ef4444;
+`;
+
+const NoPatientSelected = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-size: 1.2rem;
+`;
+
+interface PatientDetails {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  stage?: string;
+  actionItems?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 const PatientSummary = () => {
-  // This would normally come from your data store
-  const patientData = {
-    name: 'Sarah Smith',
-    id: '12345',
-    phone: '617-111-2222',
-    email: 'sarahsmith@bable.com',
-    emergency: '617-999-9999',
-    stage: 'Initial Consultation',
-    nextAppointment: 'March 13, 2025 11:00 AM',
-    pharmacy: {
-      name: 'CVS Pharmacy',
-      address: '123 Main St, Cambridge MA 01239',
-      phone: '617-456-7890'
-    },
-    labResults: 'Pending review',
-    actionItems: [
-      'Outstanding bill x',
-      'Reach out in 3 weeks to confirm appointment'
-    ]
-  };
+  const { currentUser } = useAuth();
+  const { selectedPatient } = useSelectedPatient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [patientData, setPatientData] = useState<PatientDetails | null>(null);
+
+  useEffect(() => {
+    const fetchPatientData = async () => {
+      if (!selectedPatient || !currentUser) {
+        setPatientData(null);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch(`https://bable-be-300594224442.us-central1.run.app/api/patients/${selectedPatient.id}`, {
+          headers: {
+            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          },
+        });
+
+        const { success, data } = await response.json();
+
+        if (!response.ok) {
+          // Handle specific error cases
+          if (data?.error === "Patient not found") {
+            throw new Error(`Patient record could not be found. Please contact support if this issue persists.`);
+          }
+          throw new Error(data?.error || 'Failed to fetch patient data');
+        }
+
+        if (success && data) {
+          setPatientData(data);
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (err) {
+        console.error('Error fetching patient data:', err);
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching patient data';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatientData();
+  }, [selectedPatient, currentUser]);
+
+  if (!selectedPatient) {
+    return <NoPatientSelected>Please select a patient to view their summary</NoPatientSelected>;
+  }
+
+  if (loading) {
+    return <LoadingState>Loading patient data...</LoadingState>;
+  }
+
+  if (error) {
+    return <ErrorState>{error}</ErrorState>;
+  }
+
+  if (!patientData) {
+    return <ErrorState>No patient data available</ErrorState>;
+  }
 
   return (
     <div>
       <PageTitle>Patient Summary</PageTitle>
       <PatientCard>
         <PatientHeader>
-          <PatientName>{patientData.name}</PatientName>
+          <PatientName>{patientData.firstName} {patientData.lastName}</PatientName>
           <PatientId>ID: {patientData.id}</PatientId>
         </PatientHeader>
 
         <ContactInfo>
-          <p>Phone: {patientData.phone}</p>
           <p>Email: {patientData.email}</p>
-          <p>Emergency Contact: {patientData.emergency}</p>
+          <p>Created: {patientData.createdAt ? new Date(patientData.createdAt).toLocaleDateString() : 'Not available'}</p>
+          <p>Last Updated: {patientData.updatedAt ? new Date(patientData.updatedAt).toLocaleDateString() : 'Not available'}</p>
         </ContactInfo>
 
         <InfoGrid>
           <InfoCard>
             <h3>Stage</h3>
-            <p>{patientData.stage}</p>
+            <p>{patientData.stage || 'Not set'}</p>
             <ActionButton>Edit</ActionButton>
-          </InfoCard>
-
-          <InfoCard>
-            <h3>Next Appointment</h3>
-            <p>{patientData.nextAppointment}</p>
-            <ActionButton>Edit</ActionButton>
-          </InfoCard>
-
-          <InfoCard>
-            <h3>Pharmacy</h3>
-            <p>{patientData.pharmacy.name}</p>
-            <p>{patientData.pharmacy.address}</p>
-            <p>{patientData.pharmacy.phone}</p>
-            <ActionButton>Edit</ActionButton>
-          </InfoCard>
-
-          <InfoCard>
-            <h3>Latest Lab Results</h3>
-            <p>{patientData.labResults}</p>
-            <ActionButton>View</ActionButton>
           </InfoCard>
 
           <InfoCard>
             <h3>Action Items</h3>
-            {patientData.actionItems.map((item, index) => (
-              <p key={index}>{item}</p>
-            ))}
+            {patientData.actionItems && patientData.actionItems.length > 0 ? (
+              patientData.actionItems.map((item: string, index: number) => (
+                <p key={index}>{item}</p>
+              ))
+            ) : (
+              <p>No action items</p>
+            )}
             <ActionButton>Edit</ActionButton>
           </InfoCard>
         </InfoGrid>

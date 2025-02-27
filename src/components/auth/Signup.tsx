@@ -10,7 +10,7 @@ export default function Signup() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'patient' | 'provider'>('patient');
+  const [userType, setUserType] = useState<'patient' | 'provider'>('provider');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ export default function Signup() {
         email,
         firstName,
         lastName,
-        role: 'NURSE',
+        role: userType === 'patient' ? 'PATIENT' : 'NURSE',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -52,9 +52,8 @@ export default function Signup() {
   return (
     <div className={styles.authContainer}>
       <div className={styles.logoContainer}>
-        <img src="/logo.png" alt="Logo" className={styles.logo} />
+        <img src="/icon.png" alt="Logo" className={styles.logo} />
         <h1>Bable Fertility</h1>
-        <h2>Let's get started!</h2>
         <p>Create your account</p>
       </div>
 
@@ -64,17 +63,17 @@ export default function Signup() {
         <div className={styles.userTypeSelector}>
           <button
             type="button"
-            className={`${styles.typeButton} ${userType === 'patient' ? styles.active : ''}`}
-            onClick={() => setUserType('patient')}
-          >
-            Patient
-          </button>
-          <button
-            type="button"
             className={`${styles.typeButton} ${userType === 'provider' ? styles.active : ''}`}
             onClick={() => setUserType('provider')}
           >
             Provider
+          </button>
+          <button
+            type="button"
+            className={`${styles.typeButton} ${userType === 'patient' ? styles.active : ''}`}
+            onClick={() => setUserType('patient')}
+          >
+            Patient
           </button>
         </div>
 
