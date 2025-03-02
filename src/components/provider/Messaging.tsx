@@ -58,7 +58,7 @@ const Input = styled.input`
   &:focus {
     outline: none;
     border-color: #4f46e5;
-    ring: 2px solid #4f46e5;
+    outline: 2px solid #4f46e5;
   }
 `;
 
@@ -99,15 +99,6 @@ const MessageTime = styled.div`
   margin-top: 0.25rem;
 `;
 
-const LoadingContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  font-size: 1.2rem;
-  color: #6b7280;
-`;
-
 const ErrorContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -119,7 +110,7 @@ const ErrorContainer = styled.div`
   text-align: center;
 `;
 
-interface Message {
+interface ChatMessage {
   id: string;
   body: string;
   author: string;
@@ -131,7 +122,7 @@ const Messaging = () => {
 
   const { currentUser } = useAuth();
   const { selectedPatient } = useSelectedPatient();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -375,7 +366,7 @@ client.getConversationByUniqueName('${uniqueName}')
         conversation.removeAllListeners();
       }
     };
-  }, [currentUser, selectedPatient]);
+  }, [currentUser, selectedPatient, conversation]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
