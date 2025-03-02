@@ -14,6 +14,7 @@ import { ToastContainer } from 'react-toastify';
 import ProviderLayout from './components/provider/ProviderLayout';
 import PatientSummary from './components/provider/PatientSummary';
 import Schedule from './components/provider/Schedule';
+import Messaging from './components/provider/Messaging';
 import './App.css';
 
 function HomePage() {
@@ -45,7 +46,7 @@ function AppContent() {
         {/* Provider Routes */}
         <Route path="/provider" element={<ProviderLayout />}>
           <Route path="patients" element={<PatientSummary />} />
-          <Route path="messaging" element={<div>Messaging (Coming Soon)</div>} />
+          <Route path="messaging" element={<Messaging />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="lab-results" element={<div>Lab Results (Coming Soon)</div>} />
           <Route path="billing" element={<div>Billing (Coming Soon)</div>} />

@@ -99,6 +99,26 @@ const MessageTime = styled.div`
   margin-top: 0.25rem;
 `;
 
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.2rem;
+  color: #6b7280;
+`;
+
+const ErrorContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 2rem;
+  color: #ef4444;
+  text-align: center;
+`;
+
 interface Message {
   id: string;
   body: string;
@@ -107,56 +127,207 @@ interface Message {
 }
 
 const Messaging = () => {
+  console.log('🔥 Messaging component mounted');
+
   const { currentUser } = useAuth();
   const { selectedPatient } = useSelectedPatient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Debug logging for token
   useEffect(() => {
-    if (!selectedPatient || !currentUser) return;
+    const getAndLogToken = async () => {
+      if (currentUser) {
+        const token = await currentUser.getIdToken();
+        console.log('🔑 Your Firebase token (for testing API calls):\n', token);
+        console.log('\nTest API endpoints with:\n');
+        console.log(`curl -v "https://bable-be-300594224442.us-central1.run.app/api/messaging/token" \\
+  -H "Authorization: Bearer ${token}"`);
+        console.log('\nAnd for conversation endpoint:\n');
+        console.log(`curl -v "https://bable-be-300594224442.us-central1.run.app/api/messaging/conversation/${selectedPatient?.id}" \\
+  -H "Authorization: Bearer ${token}"`);
+      }
+    };
+    getAndLogToken();
+  }, [currentUser, selectedPatient]);
+
+  // Debug logging
+  console.log('🔑 Auth state:', {
+    currentUser: currentUser ? {
+      uid: currentUser.uid,
+      email: currentUser.email
+    } : null
+  });
+
+  console.log('👤 Selected patient:', {
+    patient: selectedPatient,
+    patientId: selectedPatient?.id,
+    patientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : null
+  });
+
+  useEffect(() => {
+    console.log('🔄 Effect triggered. Checking prerequisites:', {
+      hasCurrentUser: !!currentUser,
+      currentUserEmail: currentUser?.email,
+      hasSelectedPatient: !!selectedPatient,
+      selectedPatientId: selectedPatient?.id,
+      selectedPatientFullDetails: selectedPatient
+    });
+
+    if (!selectedPatient || !currentUser) {
+      const reason = !selectedPatient ? 'No patient selected' : 'No current user';
+      console.log('❌ Cannot initialize chat:', reason, {
+        selectedPatient,
+        currentUser: currentUser ? { email: currentUser.email, uid: currentUser.uid } : null
+      });
+      setError(`Cannot initialize chat: ${reason}`);
+      return;
+    }
 
     // Initialize Twilio conversation
     const initializeChat = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`https://bable-be-300594224442.us-central1.run.app/api/chat/token`, {
+        setError(null);
+        console.log('🚀 Initializing chat for patient:', {
+          patientId: selectedPatient.id,
+          patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+          patientFullDetails: selectedPatient
+        });
+        
+        const token = await currentUser.getIdToken();
+        console.log('🎟️ Got Firebase token');
+
+        // First API call - Get Twilio token
+        console.log('📞 Requesting Twilio token...');
+        const response = await fetch(`https://bable-be-300594224442.us-central1.run.app/api/messaging/token`, {
           headers: {
-            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+            'Authorization': `Bearer ${token}`,
           },
         });
 
+        console.log('📬 Chat token response:', {
+          status: response.status,
+          ok: response.ok
+        });
+
         if (!response.ok) {
-          throw new Error('Failed to initialize chat');
+          const errorText = await response.text();
+          console.error('❌ Failed to get chat token:', {
+            status: response.status,
+            error: errorText
+          });
+          throw new Error(`Failed to initialize chat: ${response.status} ${errorText}`);
         }
 
-        const { token } = await response.json();
+        const { token: twilioToken } = await response.json();
+        console.log('✅ Successfully obtained Twilio token');
+        
+        // Decode and log the token contents
+        const tokenParts = twilioToken.split('.');
+        const tokenPayload = JSON.parse(atob(tokenParts[1]));
+        console.log('🔑 Twilio Token payload:', {
+          identity: tokenPayload.grants.identity,
+          serviceSid: tokenPayload.grants.chat.service_sid,
+          exp: new Date(tokenPayload.exp * 1000).toISOString()
+        });
         
         // Initialize Twilio Client
-        const client = new Client(token);
+        console.log('🔌 Initializing Twilio client...');
+        const client = new Client(twilioToken);
+        console.log('✅ Twilio client initialized');
 
-        // Get or create conversation for this patient
+        // Second API call - Get/create conversation
+        console.log('💬 Getting conversation for patient:', selectedPatient.id);
         const conversationResponse = await fetch(
-          `https://bable-be-300594224442.us-central1.run.app/api/chat/conversation/${selectedPatient.id}`,
+          `https://bable-be-300594224442.us-central1.run.app/api/messaging/conversation/${selectedPatient.id}`,
           {
             headers: {
-              'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+              'Authorization': `Bearer ${token}`,
             },
           }
         );
 
+        console.log('📬 Conversation response:', {
+          status: conversationResponse.status,
+          ok: conversationResponse.ok
+        });
+
         if (!conversationResponse.ok) {
-          throw new Error('Failed to get conversation');
+          const errorText = await conversationResponse.text();
+          console.error('❌ Failed to get conversation:', {
+            status: conversationResponse.status,
+            error: errorText
+          });
+          throw new Error(`Failed to get conversation: ${conversationResponse.status} ${errorText}`);
         }
 
-        const { conversationSid } = await conversationResponse.json();
-        const conv = await client.getConversationBySid(conversationSid);
+        const responseData = await conversationResponse.json();
+        const { conversationSid, uniqueName } = responseData;
+        console.log('🆔 Retrieved conversation info:', { conversationSid, uniqueName });
+        
+        console.log('\nTest conversation retrieval with Twilio SDK:\n');
+        console.log(`// Initialize Twilio client
+const { Client } = require('@twilio/conversations');
+const client = new Client('${twilioToken}');
+        
+// Try getting conversation by SID
+client.getConversationBySid('${conversationSid}')
+  .then(conv => console.log('Found conversation by SID:', conv))
+  .catch(err => console.error('Error getting by SID:', err));
+
+// Try getting conversation by uniqueName
+client.getConversationByUniqueName('${uniqueName}')
+  .then(conv => console.log('Found conversation by uniqueName:', conv))
+  .catch(err => console.error('Error getting by uniqueName:', err));`);
+
+        console.log('🔍 Verifying conversation exists in Twilio...');
+        
+        // Try listing all conversations first
+        console.log('📋 Listing all available conversations...');
+        const conversations = await client.getSubscribedConversations();
+        console.log('Available conversations:', conversations.items.map(conv => ({
+          sid: conv.sid,
+          uniqueName: conv.uniqueName,
+          friendlyName: conv.friendlyName
+        })));
+        
+        // Try getting the client info
+        console.log('🔍 Getting Twilio client info...');
+        console.log('Client info:', {
+          connectionState: client.connectionState,
+          user: client.user?.identity
+        });
+        
+        console.log('📱 Loading conversation...');
+        let conv;
+        try {
+          console.log('Attempting to get conversation by SID...');
+          conv = await client.getConversationBySid(conversationSid);
+        } catch (error) {
+          console.log('Failed to get by SID, trying uniqueName...');
+          conv = await client.getConversationByUniqueName(uniqueName);
+        }
+        
+        console.log('✅ Successfully loaded conversation');
         setConversation(conv);
 
         // Load existing messages
+        console.log('📨 Loading messages...');
         const messagesPaginator = await conv.getMessages();
+        console.log('📬 Retrieved messages:', {
+          count: messagesPaginator.items.length,
+          messages: messagesPaginator.items.map(m => ({
+            body: m.body,
+            author: m.author,
+            timestamp: m.dateCreated
+          }))
+        });
+        
         setMessages(
           messagesPaginator.items.map((item: TwilioMessage) => ({
             id: item.sid,
@@ -167,7 +338,13 @@ const Messaging = () => {
         );
 
         // Subscribe to new messages
+        console.log('🎧 Setting up message listener...');
         conv.on('messageAdded', (message: TwilioMessage) => {
+          console.log('📩 New message received:', {
+            body: message.body,
+            author: message.author,
+            timestamp: message.dateCreated
+          });
           setMessages((prevMessages) => [
             ...prevMessages,
             {
@@ -180,8 +357,10 @@ const Messaging = () => {
         });
 
       } catch (error) {
-        console.error('Error initializing chat:', error);
-        toast.error('Failed to initialize chat. Please try again.');
+        console.error('❌ Error in chat initialization:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize chat';
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -192,6 +371,7 @@ const Messaging = () => {
     // Cleanup function
     return () => {
       if (conversation) {
+        console.log('🧹 Cleaning up conversation listeners');
         conversation.removeAllListeners();
       }
     };
@@ -226,9 +406,24 @@ const Messaging = () => {
 
   if (!selectedPatient) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-        Please select a patient to start messaging
-      </div>
+      <Container>
+        <ErrorContainer>
+          Please select a patient to start messaging
+        </ErrorContainer>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container>
+        <ErrorContainer>
+          <div>Error: {error}</div>
+          <div style={{ marginTop: '1rem', fontSize: '0.875rem' }}>
+            Please check the console for more details
+          </div>
+        </ErrorContainer>
+      </Container>
     );
   }
 
@@ -237,14 +432,24 @@ const Messaging = () => {
       <ChatContainer>
         <ChatHeader>
           <div>
-            <h2 style={{ margin: 0 }}>{selectedPatient.firstName} {selectedPatient.lastName}</h2>
+            <h2 style={{ margin: 0 }}>Chat with {selectedPatient.firstName} {selectedPatient.lastName}</h2>
             <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              {selectedPatient.email}
+              {loading ? 'Connecting...' : conversation ? 'Connected' : 'Not connected'}
             </div>
           </div>
         </ChatHeader>
 
         <ChatMessages>
+          {/* Debug info at the top */}
+          <div style={{ padding: '10px', margin: '10px', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.8rem' }}>
+            <p><strong>Debug Info:</strong></p>
+            <div>Current User: {currentUser ? `✅ ${currentUser.email}` : '❌ Not logged in'}</div>
+            <div>Selected Patient: {selectedPatient ? `✅ ${selectedPatient.firstName} ${selectedPatient.lastName}` : '❌ None selected'}</div>
+            <div>Connection Status: {loading ? '🔄 Connecting' : conversation ? '✅ Connected' : '❌ Not connected'}</div>
+            <div>Messages Count: {messages.length}</div>
+          </div>
+
+          {/* Chat messages */}
           {messages.map((message) => (
             <div key={message.id}>
               <Message isProvider={message.author === currentUser?.uid}>
