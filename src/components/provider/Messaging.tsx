@@ -108,7 +108,9 @@ const Message = styled.div<{ isProvider: boolean }>`
   color: ${props => props.isProvider ? '#000000' : '#000000'};
   padding: 0.75rem 1rem;
   border-radius: 18px;
-  border-bottom-${props => props.isProvider ? 'right' : 'left'}-radius: 4px;
+  ${props => props.isProvider 
+    ? 'border-bottom-right-radius: 4px;' 
+    : 'border-bottom-left-radius: 4px;'}
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   word-wrap: break-word;
   font-size: 0.9375rem;
@@ -431,7 +433,7 @@ client.getConversationByUniqueName('${uniqueName}')
         console.log('🧹 Cleaning up conversation listeners');
       }
     };
-  }, [currentUser, selectedPatient]);
+  }, [currentUser, selectedPatient, conversation]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
