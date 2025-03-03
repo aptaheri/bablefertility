@@ -193,12 +193,7 @@ const Messaging = () => {
       selectedPatientFullDetails: selectedPatient
     });
 
-    // Prevent re-initialization if we already have a conversation
-    if (conversation) {
-      console.log('🔌 Chat already initialized, skipping initialization');
-      return;
-    }
-
+    // Don't proceed if we don't have required data
     if (!selectedPatient || !currentUser) {
       const reason = !selectedPatient ? 'No patient selected' : 'No current user';
       console.log('❌ Cannot initialize chat:', reason, {
@@ -429,16 +424,23 @@ client.getConversationByUniqueName('${uniqueName}')
 
     // Cleanup function
     return () => {
+      console.log('🧹 Running cleanup');
+      // Clean up any existing conversation
       if (conversation) {
-        console.log('🧹 Cleaning up conversation listeners');
+        conversation.removeAllListeners();
       }
+      setConversation(null);
+      setMessages([]);
+      setError(null);
     };
-  }, [currentUser, selectedPatient, conversation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, selectedPatient]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
