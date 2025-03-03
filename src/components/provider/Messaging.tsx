@@ -235,7 +235,7 @@ const Messaging = () => {
         // Second API call - Get/create conversation
         console.log('💬 Getting conversation for patient:', selectedPatient.id);
         const conversationResponse = await fetch(
-          `https://bable-be-300594224442.us-central1.run.app/api/messaging/conversation/${selectedPatient.id}`,
+          `https://bable-be-300594224442.us-central1.run.app/api/conversations/provider-to-patient/${selectedPatient.id}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
