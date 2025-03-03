@@ -19,7 +19,7 @@ const ChatContainer = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #f9fafb;
+  background: #ffffff;
 `;
 
 const ChatHeader = styled.div`
@@ -37,7 +37,8 @@ const ChatMessages = styled.div`
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
+  background: #f8f9fa;
 `;
 
 const MessageInput = styled.div`
@@ -51,14 +52,15 @@ const MessageInput = styled.div`
 const Input = styled.input`
   flex: 1;
   padding: 0.75rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
+  border: 2px solid #e5e7eb;
+  border-radius: 24px;
   font-size: 0.875rem;
+  transition: all 0.2s ease;
 
   &:focus {
     outline: none;
     border-color: #4f46e5;
-    outline: 2px solid #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
   }
 `;
 
@@ -67,36 +69,56 @@ const SendButton = styled.button`
   background: #4f46e5;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 24px;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
     background: #4338ca;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   &:disabled {
     background: #9ca3af;
     cursor: not-allowed;
+    transform: none;
   }
 `;
 
-const Message = styled.div<{ isProvider: boolean }>`
-  max-width: 70%;
+const MessageContainer = styled.div<{ isProvider: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: ${props => props.isProvider ? 'flex-end' : 'flex-start'};
+  max-width: 85%;
   align-self: ${props => props.isProvider ? 'flex-end' : 'flex-start'};
-  background: ${props => props.isProvider ? '#4f46e5' : 'white'};
-  color: ${props => props.isProvider ? 'white' : '#374151'};
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  border: ${props => props.isProvider ? 'none' : '1px solid #e5e7eb'};
+  gap: 0.25rem;
 `;
 
-const MessageTime = styled.div`
+const Message = styled.div<{ isProvider: boolean }>`
+  max-width: 100%;
+  background: ${props => props.isProvider ? '#FFD700' : '#E9ECEF'};
+  color: ${props => props.isProvider ? '#000000' : '#000000'};
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  border-bottom-${props => props.isProvider ? 'right' : 'left'}-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  word-wrap: break-word;
+  font-size: 0.9375rem;
+`;
+
+const MessageTime = styled.div<{ isProvider: boolean }>`
   font-size: 0.75rem;
   color: #6b7280;
-  margin-top: 0.25rem;
+  padding: 0 0.5rem;
+  text-align: ${props => props.isProvider ? 'right' : 'left'};
 `;
 
 const ErrorContainer = styled.div`
@@ -169,6 +191,12 @@ const Messaging = () => {
       selectedPatientFullDetails: selectedPatient
     });
 
+    // Prevent re-initialization if we already have a conversation
+    if (conversation) {
+      console.log('🔌 Chat already initialized, skipping initialization');
+      return;
+    }
+
     if (!selectedPatient || !currentUser) {
       const reason = !selectedPatient ? 'No patient selected' : 'No current user';
       console.log('❌ Cannot initialize chat:', reason, {
@@ -235,7 +263,7 @@ const Messaging = () => {
         // Second API call - Get/create conversation
         console.log('💬 Getting conversation for patient:', selectedPatient.id);
         const conversationResponse = await fetch(
-          `https://bable-be-300594224442.us-central1.run.app/api/conversations/provider-to-patient/${selectedPatient.id}`,
+          `https://bable-be-300594224442.us-central1.run.app/api/messaging/conversations/provider-to-patient/${selectedPatient.id}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -249,15 +277,37 @@ const Messaging = () => {
         });
 
         if (!conversationResponse.ok) {
-          const errorText = await conversationResponse.text();
-          console.error('❌ Failed to get conversation:', {
-            status: conversationResponse.status,
-            error: errorText
-          });
-          throw new Error(`Failed to get conversation: ${conversationResponse.status} ${errorText}`);
+          const errorData = await conversationResponse.json().catch(() => null);
+          const errorMessage = errorData?.message || errorData?.error || await conversationResponse.text();
+          
+          switch (conversationResponse.status) {
+            case 401:
+              console.error('❌ Authentication error:', errorMessage);
+              throw new Error('Provider authentication failed. Please try logging in again.');
+            
+            case 400:
+              console.error('❌ Invalid request:', errorMessage);
+              throw new Error('Invalid request: ' + errorMessage);
+            
+            case 500:
+              console.error('❌ Server error:', errorMessage);
+              throw new Error('Server error occurred. Please try again later.');
+            
+            default:
+              console.error('❌ Failed to get conversation:', {
+                status: conversationResponse.status,
+                error: errorMessage
+              });
+              throw new Error(`Failed to get conversation: ${conversationResponse.status} ${errorMessage}`);
+          }
         }
 
         const responseData = await conversationResponse.json();
+        if (!responseData.conversationSid || !responseData.uniqueName) {
+          console.error('❌ Invalid conversation response:', responseData);
+          throw new Error('Invalid conversation data received from server');
+        }
+        
         const { conversationSid, uniqueName } = responseData;
         console.log('🆔 Retrieved conversation info:', { conversationSid, uniqueName });
         
@@ -336,22 +386,38 @@ client.getConversationByUniqueName('${uniqueName}')
             author: message.author,
             timestamp: message.dateCreated
           });
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            {
-              id: message.sid,
-              body: message.body || '',
-              author: message.author || '',
-              timestamp: message.dateCreated ? message.dateCreated.toISOString() : new Date().toISOString(),
-            },
-          ]);
+          
+          setMessages((prevMessages) => {
+            // Check if message already exists
+            if (prevMessages.some(m => m.id === message.sid)) {
+              console.log('📝 Message already exists, skipping:', message.sid);
+              return prevMessages;
+            }
+            
+            return [
+              ...prevMessages,
+              {
+                id: message.sid,
+                body: message.body || '',
+                author: message.author || '',
+                timestamp: message.dateCreated ? message.dateCreated.toISOString() : new Date().toISOString(),
+              },
+            ];
+          });
         });
 
       } catch (error) {
         console.error('❌ Error in chat initialization:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to initialize chat';
         setError(errorMessage);
-        toast.error(errorMessage);
+        toast.error(errorMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       } finally {
         setLoading(false);
       }
@@ -363,10 +429,9 @@ client.getConversationByUniqueName('${uniqueName}')
     return () => {
       if (conversation) {
         console.log('🧹 Cleaning up conversation listeners');
-        conversation.removeAllListeners();
       }
     };
-  }, [currentUser, selectedPatient, conversation]);
+  }, [currentUser, selectedPatient]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -431,25 +496,31 @@ client.getConversationByUniqueName('${uniqueName}')
         </ChatHeader>
 
         <ChatMessages>
-          {/* Debug info at the top */}
-          <div style={{ padding: '10px', margin: '10px', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.8rem' }}>
-            <p><strong>Debug Info:</strong></p>
+          {/* Debug info with improved styling */}
+          <div style={{ 
+            padding: '10px', 
+            margin: '10px', 
+            background: 'white', 
+            borderRadius: '8px', 
+            fontSize: '0.8rem',
+            border: '1px solid #e5e7eb'
+          }}>
+            <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>Debug Info:</p>
             <div>Current User: {currentUser ? `✅ ${currentUser.email}` : '❌ Not logged in'}</div>
             <div>Selected Patient: {selectedPatient ? `✅ ${selectedPatient.firstName} ${selectedPatient.lastName}` : '❌ None selected'}</div>
             <div>Connection Status: {loading ? '🔄 Connecting' : conversation ? '✅ Connected' : '❌ Not connected'}</div>
             <div>Messages Count: {messages.length}</div>
           </div>
 
-          {/* Chat messages */}
           {messages.map((message) => (
-            <div key={message.id}>
+            <MessageContainer key={message.id} isProvider={message.author === currentUser?.uid}>
               <Message isProvider={message.author === currentUser?.uid}>
                 {message.body}
-                <MessageTime>
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </MessageTime>
               </Message>
-            </div>
+              <MessageTime isProvider={message.author === currentUser?.uid}>
+                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </MessageTime>
+            </MessageContainer>
           ))}
           <div ref={messagesEndRef} />
         </ChatMessages>
