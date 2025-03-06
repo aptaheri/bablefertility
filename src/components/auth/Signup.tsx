@@ -10,7 +10,7 @@ export default function Signup() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'patient' | 'provider'>('provider');
+  const [userType, setUserType] = useState<'patient' | 'provider' | 'admin'>('provider');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ export default function Signup() {
         email,
         firstName,
         lastName,
-        role: userType === 'patient' ? 'PATIENT' : 'NURSE',
+        role: userType === 'patient' ? 'PATIENT' : userType === 'provider' ? 'NURSE' : 'ADMIN',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -41,7 +41,7 @@ export default function Signup() {
       const db = getFirestore();
       await setDoc(doc(db, 'users', userCredential.user.uid), userData);
       
-      navigate('/dashboard');
+      navigate('/provider/patients');
     } catch (err) {
       setError('Failed to create an account');
       console.error(err);
@@ -74,6 +74,13 @@ export default function Signup() {
             onClick={() => setUserType('patient')}
           >
             Patient
+          </button>
+          <button
+            type="button"
+            className={`${styles.typeButton} ${userType === 'admin' ? styles.active : ''}`}
+            onClick={() => setUserType('admin')}
+          >
+            Admin
           </button>
         </div>
 

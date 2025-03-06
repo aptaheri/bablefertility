@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
-type UserType = 'patient' | 'provider';
+type UserType = 'patient' | 'provider' | 'admin';
 
 interface AuthContextType {
   currentUser: User | null;

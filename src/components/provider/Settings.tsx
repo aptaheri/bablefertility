@@ -123,7 +123,7 @@ const Settings = () => {
       if (!currentUser) return;
 
       try {
-        const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/providers', {
+        const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/providers/all', {
           headers: {
             'Authorization': `Bearer ${await currentUser.getIdToken()}`,
           },
