@@ -15,6 +15,7 @@ import ProviderLayout from './components/provider/ProviderLayout';
 import PatientSummary from './components/provider/PatientSummary';
 import Schedule from './components/provider/Schedule';
 import Messaging from './components/provider/Messaging';
+import Settings from './components/provider/Settings';
 import './App.css';
 
 function HomePage() {
@@ -50,6 +51,7 @@ function AppContent() {
           <Route path="schedule" element={<Schedule />} />
           <Route path="lab-results" element={<div>Lab Results (Coming Soon)</div>} />
           <Route path="billing" element={<div>Billing (Coming Soon)</div>} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
       {shouldShowNavAndFooter && <Footer />}

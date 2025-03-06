@@ -87,7 +87,7 @@ const AppointmentCard = styled.div`
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 1rem;
   align-items: center;
 `;
@@ -168,47 +168,75 @@ const FormGroup = styled.div`
   }
 `;
 
-interface Appointment {
-  id: string;
+const DeleteButton = styled.button`
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background: #dc2626;
+  }
+`;
+
+interface CalendarEvent {
+  id?: string;
   title: string;
   description: string;
-  startTime: string;
-  endTime: string;
-  patientId: string;
-  eventType: 'APPOINTMENT' | 'FOLLOW_UP' | 'CONSULTATION';
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  userId: string; // ID of the user creating the event
+  patientId: string; // ID of the patient the event is for
+  eventType: 
+    | 'APPOINTMENT' 
+    | 'FOLLOW_UP' 
+    | 'CONSULTATION'
+    | 'MEDICATION'
+    | 'LAB_TEST'
+    | 'LEGAL'
+    | 'PROCEDURE'
+    | 'MONITORING'
+    | 'EDUCATION'
+    | 'SUPPORT_GROUP'
+    | 'FERTILITY_TREATMENT'
+    | 'INSURANCE'
+    | 'COUNSELING'
+    | 'OTHER';
   createdAt?: string;
   updatedAt?: string;
   patientName?: string; // We'll add this when combining with patient data
 }
 
-interface AppointmentFormData {
+interface CalendarEventFormData {
   title: string;
   description: string;
   startTime: string;
   endTime: string;
-  eventType: 'APPOINTMENT' | 'FOLLOW_UP' | 'CONSULTATION';
-  duration: number;
+  eventType: CalendarEvent['eventType'];
 }
 
 const Schedule = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [formData, setFormData] = useState<AppointmentFormData>({
+  const [formData, setFormData] = useState<CalendarEventFormData>({
     title: 'Initial Consultation',
     description: '',
     startTime: '09:00',
     endTime: '10:00',
-    eventType: 'CONSULTATION',
-    duration: 60
+    eventType: 'CONSULTATION'
   });
   const [loading, setLoading] = useState(false);
   const [fetchingAppointments, setFetchingAppointments] = useState(false);
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]); // Cache for all appointments
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]); // Cache for all events
   const { currentUser } = useAuth();
   const { selectedPatient } = useSelectedPatient();
 
   const fetchAppointments = useCallback(async () => {
     if (!currentUser || !selectedPatient) {
-      setAllAppointments([]);
+      setAllEvents([]);
       return;
     }
 
@@ -226,11 +254,11 @@ const Schedule = () => {
       }
 
       const data = await response.json();
-      // Sort appointments by start time and store all appointments
-      const sortedAppointments = data.sort((a: Appointment, b: Appointment) => 
+      // Sort events by start time and store all events
+      const sortedEvents = data.sort((a: CalendarEvent, b: CalendarEvent) => 
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
       );
-      setAllAppointments(sortedAppointments);
+      setAllEvents(sortedEvents);
     } catch (error) {
       console.error('Error fetching appointments:', error);
       toast.error('Unable to load appointments. Please try again later.');
@@ -239,30 +267,30 @@ const Schedule = () => {
     }
   }, [currentUser, selectedPatient]);
 
-  // Filter appointments based on selected date
-  const filteredAppointments = useMemo(() => {
-    if (!allAppointments.length) return [];
+  // Filter events based on selected date
+  const filteredEvents = useMemo(() => {
+    if (!allEvents.length) return [];
     
     const selectedDateStart = new Date(selectedDate);
     selectedDateStart.setHours(0, 0, 0, 0);
     
-    return allAppointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.startTime);
-      return appointmentDate >= selectedDateStart;
+    return allEvents.filter(event => {
+      const eventDate = new Date(event.startTime);
+      return eventDate >= selectedDateStart;
     });
-  }, [allAppointments, selectedDate]);
+  }, [allEvents, selectedDate]);
 
-  // Group filtered appointments by date
-  const groupedAppointments = useMemo(() => {
-    return filteredAppointments.reduce((groups: { [key: string]: Appointment[] }, appointment) => {
-      const date = new Date(appointment.startTime).toDateString();
+  // Group filtered events by date
+  const groupedEvents = useMemo(() => {
+    return filteredEvents.reduce((groups: { [key: string]: CalendarEvent[] }, event) => {
+      const date = new Date(event.startTime).toDateString();
       if (!groups[date]) {
         groups[date] = [];
       }
-      groups[date].push(appointment);
+      groups[date].push(event);
       return groups;
     }, {});
-  }, [filteredAppointments]);
+  }, [filteredEvents]);
 
   // Fetch appointments when selected patient changes or when component mounts
   useEffect(() => {
@@ -277,21 +305,10 @@ const Schedule = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => {
-      const updates: Partial<AppointmentFormData> = { [name]: value };
-      
-      // Update end time when start time or duration changes
-      if (name === 'startTime' || name === 'duration') {
-        const [hours, minutes] = prev.startTime.split(':');
-        const startDate = new Date();
-        startDate.setHours(parseInt(hours), parseInt(minutes), 0);
-        const endDate = new Date(startDate);
-        endDate.setMinutes(startDate.getMinutes() + (name === 'duration' ? parseInt(value) : prev.duration));
-        updates.endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-      }
-      
-      return { ...prev, ...updates };
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleCreateAppointment = async () => {
@@ -320,6 +337,7 @@ const Schedule = () => {
       description: formData.description || 'First meeting with patient',
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
+      userId: currentUser.uid,
       patientId: selectedPatient.id,
       eventType: formData.eventType
     };
@@ -354,15 +372,60 @@ const Schedule = () => {
         description: '',
         startTime: '09:00',
         endTime: '10:00',
-        eventType: 'CONSULTATION',
-        duration: 60
+        eventType: 'CONSULTATION'
       });
 
-      // Refresh appointments list
+      // Refresh events list
       fetchAppointments();
     } catch (error) {
       console.error('Error creating appointment:', error);
       toast.error('Failed to create appointment. Please try again.', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (!currentUser) return;
+
+    if (!window.confirm('Are you sure you want to delete this appointment?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`https://bable-be-300594224442.us-central1.run.app/api/calendar/${appointmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete appointment');
+      }
+
+      toast.success('Appointment deleted successfully', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+
+      // Refresh events list
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      toast.error('Failed to delete appointment. Please try again.', {
         position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,
@@ -423,26 +486,32 @@ const Schedule = () => {
               </LoadingState>
             ) : (
               <>
-                {Object.entries(groupedAppointments).map(([date, dayAppointments]) => (
+                {Object.entries(groupedEvents).map(([date, dayEvents]) => (
                   <div key={date}>
                     <h4 style={{ margin: '1rem 0 0.5rem', color: '#4b5563' }}>
                       {formatAppointmentDate(date)}
                     </h4>
-                    {dayAppointments.map((appointment) => (
-                      <AppointmentCard key={appointment.id}>
+                    {dayEvents.map((event) => (
+                      <AppointmentCard key={event.id}>
                         <AppointmentInfo>
-                          <h4>{appointment.title}</h4>
-                          <p>{appointment.description}</p>
-                          <p>Type: {appointment.eventType}</p>
+                          <h4>{event.title}</h4>
+                          <p>{event.description}</p>
+                          <p>Type: {event.eventType}</p>
                         </AppointmentInfo>
                         <AppointmentTime>
-                          {formatAppointmentTime(appointment.startTime, appointment.endTime)}
+                          {formatAppointmentTime(event.startTime, event.endTime)}
                         </AppointmentTime>
+                        <DeleteButton
+                          onClick={() => handleDeleteAppointment(event.id!)}
+                          disabled={loading}
+                        >
+                          Delete
+                        </DeleteButton>
                       </AppointmentCard>
                     ))}
                   </div>
                 ))}
-                {selectedPatient && !fetchingAppointments && filteredAppointments.length === 0 && (
+                {selectedPatient && !fetchingAppointments && filteredEvents.length === 0 && (
                   <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem' }}>
                     No appointments found from {selectedDate.toLocaleDateString()}
                   </p>
@@ -485,50 +554,43 @@ const Schedule = () => {
               value={formData.eventType}
               onChange={handleInputChange}
             >
-              <option value="CONSULTATION">Consultation</option>
-              <option value="FOLLOW_UP">Follow-up</option>
               <option value="APPOINTMENT">General Appointment</option>
+              <option value="FOLLOW_UP">Follow-up</option>
+              <option value="CONSULTATION">Consultation</option>
+              <option value="MEDICATION">Medication</option>
+              <option value="LAB_TEST">Lab Test</option>
+              <option value="LEGAL">Legal</option>
+              <option value="PROCEDURE">Procedure</option>
+              <option value="MONITORING">Monitoring</option>
+              <option value="EDUCATION">Education</option>
+              <option value="SUPPORT_GROUP">Support Group</option>
+              <option value="FERTILITY_TREATMENT">Fertility Treatment</option>
+              <option value="INSURANCE">Insurance</option>
+              <option value="COUNSELING">Counseling</option>
+              <option value="OTHER">Other</option>
             </Select>
           </FormGroup>
 
           <FormGroup>
             <label htmlFor="startTime">Start Time</label>
-            <Select
+            <Input
+              type="time"
               id="startTime"
               name="startTime"
               value={formData.startTime}
               onChange={handleInputChange}
-            >
-              {Array.from({ length: 21 }, (_, i) => i + 3).flatMap((hour) => [
-                {
-                  value: `${hour.toString().padStart(2, '0')}:00`,
-                  label: `${hour > 12 ? hour - 12 : hour}:00 ${hour < 12 ? 'AM' : 'PM'}`
-                },
-                {
-                  value: `${hour.toString().padStart(2, '0')}:30`,
-                  label: `${hour > 12 ? hour - 12 : hour}:30 ${hour < 12 ? 'AM' : 'PM'}`
-                }
-              ]).map((timeSlot) => (
-                <option key={timeSlot.value} value={timeSlot.value}>
-                  {timeSlot.label}
-                </option>
-              ))}
-            </Select>
+            />
           </FormGroup>
 
           <FormGroup>
-            <label htmlFor="duration">Duration</label>
-            <Select
-              id="duration"
-              name="duration"
-              value={formData.duration}
+            <label htmlFor="endTime">End Time</label>
+            <Input
+              type="time"
+              id="endTime"
+              name="endTime"
+              value={formData.endTime}
               onChange={handleInputChange}
-            >
-              <option value="30">30 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="90">1.5 hours</option>
-              <option value="120">2 hours</option>
-            </Select>
+            />
           </FormGroup>
 
           <Button
