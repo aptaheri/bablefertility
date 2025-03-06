@@ -499,9 +499,9 @@ const Schedule = () => {
               value={formData.startTime}
               onChange={handleInputChange}
             >
-              {Array.from({ length: 9 }, (_, i) => i + 9).map((hour) => (
+              {Array.from({ length: 21 }, (_, i) => i + 3).map((hour) => (
                 <option key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                  {hour}:00 {hour < 12 ? 'AM' : 'PM'}
+                  {hour > 12 ? `${hour - 12}:00 PM` : `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`}
                 </option>
               ))}
             </Select>
