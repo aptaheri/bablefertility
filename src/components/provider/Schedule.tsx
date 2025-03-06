@@ -499,9 +499,18 @@ const Schedule = () => {
               value={formData.startTime}
               onChange={handleInputChange}
             >
-              {Array.from({ length: 21 }, (_, i) => i + 3).map((hour) => (
-                <option key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                  {hour > 12 ? `${hour - 12}:00 PM` : `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`}
+              {Array.from({ length: 21 }, (_, i) => i + 3).flatMap((hour) => [
+                {
+                  value: `${hour.toString().padStart(2, '0')}:00`,
+                  label: `${hour > 12 ? hour - 12 : hour}:00 ${hour < 12 ? 'AM' : 'PM'}`
+                },
+                {
+                  value: `${hour.toString().padStart(2, '0')}:30`,
+                  label: `${hour > 12 ? hour - 12 : hour}:30 ${hour < 12 ? 'AM' : 'PM'}`
+                }
+              ]).map((timeSlot) => (
+                <option key={timeSlot.value} value={timeSlot.value}>
+                  {timeSlot.label}
                 </option>
               ))}
             </Select>
