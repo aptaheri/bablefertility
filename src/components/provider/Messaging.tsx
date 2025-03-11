@@ -114,6 +114,11 @@ const Message = styled.div<{ isProvider: boolean }>`
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   word-wrap: break-word;
   font-size: 0.9375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+  width: 100%;
 `;
 
 const MessageTime = styled.div<{ isProvider: boolean }>`
@@ -134,12 +139,126 @@ const ErrorContainer = styled.div`
   text-align: center;
 `;
 
+interface VideoPreview {
+  url: string;
+  thumbnailUrl: string;
+  title?: string;
+  provider: 'youtube' | 'vimeo';
+}
+
+interface MessageAttributes {
+  videoPreview?: VideoPreview;
+}
+
 interface ChatMessage {
   id: string;
   body: string;
   author: string;
   timestamp: string;
+  videoPreview?: VideoPreview;
+  isVideoThumbnailLoaded?: boolean;
+  displayText?: string;
 }
+
+const VideoPreview = styled.div`
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 100%;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+`;
+
+const VideoThumbnail = styled.img`
+  width: 100%;
+  max-width: 320px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+`;
+
+const VideoTitle = styled.div`
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-top: 0.25rem;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+// Helper functions for video URL detection and parsing
+const getYouTubeVideoId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
+    /youtube\.com\/embed\/([^&\s]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+const getVimeoVideoId = (url: string): string | null => {
+  const patterns = [
+    /vimeo\.com\/([0-9]+)/,
+    /player\.vimeo\.com\/video\/([0-9]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+const extractVideoPreview = (text: string): { preview: VideoPreview | null; cleanText: string } => {
+  const words = text.split(/\s+/);
+  for (const word of words) {
+    // Check for YouTube
+    const youtubeId = getYouTubeVideoId(word);
+    if (youtubeId) {
+      const cleanText = text.replace(word, '').trim();
+      return {
+        preview: {
+          url: word,
+          thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+          provider: 'youtube' as const
+        },
+        cleanText
+      };
+    }
+
+    // Check for Vimeo
+    const vimeoId = getVimeoVideoId(word);
+    if (vimeoId) {
+      const cleanText = text.replace(word, '').trim();
+      return {
+        preview: {
+          url: word,
+          thumbnailUrl: `https://vumbnail.com/${vimeoId}.jpg`,
+          provider: 'vimeo' as const
+        },
+        cleanText
+      };
+    }
+  }
+  return { preview: null, cleanText: text };
+};
+
+const handleVideoClick = (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
 
 const Messaging = () => {
   console.log('🔥 Messaging component mounted');
@@ -367,12 +486,19 @@ client.getConversationByUniqueName('${uniqueName}')
         });
         
         setMessages(
-          messagesPaginator.items.map((item: TwilioMessage) => ({
-            id: item.sid,
-            body: item.body || '',
-            author: item.author || '',
-            timestamp: item.dateCreated ? item.dateCreated.toISOString() : new Date().toISOString(),
-          }))
+          messagesPaginator.items.map((item: TwilioMessage) => {
+            const { preview: extractedPreview, cleanText } = extractVideoPreview(item.body || '');
+            const videoPreview = (item.attributes as MessageAttributes)?.videoPreview || extractedPreview;
+            return {
+              id: item.sid,
+              body: item.body || '',
+              author: item.author || '',
+              timestamp: item.dateCreated ? item.dateCreated.toISOString() : new Date().toISOString(),
+              videoPreview: videoPreview || undefined,
+              isVideoThumbnailLoaded: false,
+              displayText: cleanText
+            };
+          })
         );
 
         // Subscribe to new messages
@@ -381,15 +507,18 @@ client.getConversationByUniqueName('${uniqueName}')
           console.log('📩 New message received:', {
             body: message.body,
             author: message.author,
-            timestamp: message.dateCreated
+            timestamp: message.dateCreated,
+            attributes: message.attributes
           });
           
           setMessages((prevMessages) => {
-            // Check if message already exists
             if (prevMessages.some(m => m.id === message.sid)) {
               console.log('📝 Message already exists, skipping:', message.sid);
               return prevMessages;
             }
+            
+            const { preview: extractedPreview, cleanText } = extractVideoPreview(message.body || '');
+            const videoPreview = (message.attributes as MessageAttributes)?.videoPreview || extractedPreview;
             
             return [
               ...prevMessages,
@@ -398,6 +527,9 @@ client.getConversationByUniqueName('${uniqueName}')
                 body: message.body || '',
                 author: message.author || '',
                 timestamp: message.dateCreated ? message.dateCreated.toISOString() : new Date().toISOString(),
+                videoPreview: videoPreview || undefined,
+                isVideoThumbnailLoaded: false,
+                displayText: cleanText
               },
             ];
           });
@@ -449,7 +581,19 @@ client.getConversationByUniqueName('${uniqueName}')
     if (!newMessage.trim() || !currentUser || !selectedPatient || !conversation) return;
 
     try {
-      await conversation.sendMessage(newMessage.trim());
+      const { preview: videoPreview, cleanText } = extractVideoPreview(newMessage.trim());
+      const messageOptions = videoPreview ? {
+        attributes: JSON.parse(JSON.stringify({
+          videoPreview: {
+            url: videoPreview.url,
+            thumbnailUrl: videoPreview.thumbnailUrl,
+            provider: videoPreview.provider,
+            ...(videoPreview.title ? { title: videoPreview.title } : {})
+          }
+        }))
+      } : undefined;
+      
+      await conversation.sendMessage(newMessage.trim(), messageOptions);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -519,7 +663,40 @@ client.getConversationByUniqueName('${uniqueName}')
           {messages.map((message) => (
             <MessageContainer key={message.id} isProvider={message.author === currentUser?.uid}>
               <Message isProvider={message.author === currentUser?.uid}>
-                {message.body}
+                {message.videoPreview && !message.isVideoThumbnailLoaded ? message.body : message.displayText}
+                {message.videoPreview && (
+                  <VideoPreview onClick={() => handleVideoClick(message.videoPreview!.url)}>
+                    <VideoThumbnail 
+                      src={message.videoPreview.thumbnailUrl} 
+                      alt={message.videoPreview.title || 'Video thumbnail'} 
+                      onLoad={() => {
+                        setMessages(prevMessages => 
+                          prevMessages.map(msg => 
+                            msg.id === message.id 
+                              ? { ...msg, isVideoThumbnailLoaded: true }
+                              : msg
+                          )
+                        );
+                      }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = message.videoPreview?.provider === 'youtube' 
+                          ? 'https://img.youtube.com/vi/default/maxresdefault.jpg'
+                          : 'https://i.vimeocdn.com/video/default.jpg';
+                        setMessages(prevMessages => 
+                          prevMessages.map(msg => 
+                            msg.id === message.id 
+                              ? { ...msg, isVideoThumbnailLoaded: false }
+                              : msg
+                          )
+                        );
+                      }}
+                    />
+                    {message.videoPreview.title && (
+                      <VideoTitle>{message.videoPreview.title}</VideoTitle>
+                    )}
+                  </VideoPreview>
+                )}
               </Message>
               <MessageTime isProvider={message.author === currentUser?.uid}>
                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
