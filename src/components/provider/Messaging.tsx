@@ -139,7 +139,7 @@ const ErrorContainer = styled.div`
   text-align: center;
 `;
 
-interface VideoPreview {
+interface VideoPreviewData {
   url: string;
   thumbnailUrl: string;
   title?: string;
@@ -147,7 +147,7 @@ interface VideoPreview {
 }
 
 interface MessageAttributes {
-  videoPreview?: VideoPreview;
+  videoPreview?: VideoPreviewData;
 }
 
 interface ChatMessage {
@@ -155,7 +155,7 @@ interface ChatMessage {
   body: string;
   author: string;
   timestamp: string;
-  videoPreview?: VideoPreview;
+  videoPreview?: VideoPreviewData;
   isVideoThumbnailLoaded?: boolean;
   displayText?: string;
 }
@@ -222,7 +222,7 @@ const getVimeoVideoId = (url: string): string | null => {
   return null;
 };
 
-const extractVideoPreview = (text: string): { preview: VideoPreview | null; cleanText: string } => {
+const extractVideoPreview = (text: string): { preview: VideoPreviewData | null; cleanText: string } => {
   const words = text.split(/\s+/);
   for (const word of words) {
     // Check for YouTube
@@ -581,7 +581,7 @@ client.getConversationByUniqueName('${uniqueName}')
     if (!newMessage.trim() || !currentUser || !selectedPatient || !conversation) return;
 
     try {
-      const { preview: videoPreview, cleanText } = extractVideoPreview(newMessage.trim());
+      const { preview: videoPreview } = extractVideoPreview(newMessage.trim());
       const messageOptions = videoPreview ? {
         attributes: JSON.parse(JSON.stringify({
           videoPreview: {
