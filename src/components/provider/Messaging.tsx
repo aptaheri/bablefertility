@@ -28,7 +28,41 @@ const ChatHeader = styled.div`
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const HeaderAvatar = styled.div<{ hasImage?: boolean }>`
+  width: 2.5rem;
+  height: 2.5rem;
+  background: ${props => props.hasImage ? 'transparent' : '#f3f4f6'};
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  color: #4b5563;
+  overflow: hidden;
+`;
+
+const AvatarImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const HeaderInfo = styled.div`
+  flex: 1;
+`;
+
+const HeaderName = styled.h2`
+  margin: 0;
+  font-size: 1.125rem;
+  color: #111827;
+`;
+
+const HeaderStatus = styled.div`
+  font-size: 0.875rem;
+  color: #6b7280;
 `;
 
 const ChatMessages = styled.div`
@@ -95,17 +129,36 @@ const SendButton = styled.button`
 
 const MessageContainer = styled.div<{ isProvider: boolean }>`
   display: flex;
-  flex-direction: column;
-  align-items: ${props => props.isProvider ? 'flex-end' : 'flex-start'};
+  align-items: flex-end;
+  gap: 0.5rem;
   max-width: 85%;
   align-self: ${props => props.isProvider ? 'flex-end' : 'flex-start'};
+`;
+
+const MessageAvatar = styled.div<{ hasImage?: boolean }>`
+  width: 2rem;
+  height: 2rem;
+  background: ${props => props.hasImage ? 'transparent' : '#f3f4f6'};
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  color: #4b5563;
+  overflow: hidden;
+  flex-shrink: 0;
+`;
+
+const MessageContent = styled.div`
+  display: flex;
+  flex-direction: column;
   gap: 0.25rem;
 `;
 
 const Message = styled.div<{ isProvider: boolean }>`
   max-width: 100%;
-  background: ${props => props.isProvider ? '#FFD700' : '#E9ECEF'};
-  color: ${props => props.isProvider ? '#000000' : '#000000'};
+  background: ${props => props.isProvider ? '#007AFF' : '#e9e9eb'};
+  color: ${props => props.isProvider ? '#FFFFFF' : '#000000'};
   padding: 0.75rem 1rem;
   border-radius: 18px;
   ${props => props.isProvider 
@@ -118,7 +171,6 @@ const Message = styled.div<{ isProvider: boolean }>`
   flex-direction: column;
   gap: 0.5rem;
   text-align: left;
-  width: 100%;
 `;
 
 const MessageTime = styled.div<{ isProvider: boolean }>`
@@ -608,6 +660,14 @@ client.getConversationByUniqueName('${uniqueName}')
     }
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  };
+
   if (!selectedPatient) {
     return (
       <Container>
@@ -635,12 +695,19 @@ client.getConversationByUniqueName('${uniqueName}')
     <Container>
       <ChatContainer>
         <ChatHeader>
-          <div>
-            <h2 style={{ margin: 0 }}>Chat with {selectedPatient.firstName} {selectedPatient.lastName}</h2>
-            <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+          <HeaderAvatar hasImage={!!selectedPatient?.profilePictureUrl}>
+            {selectedPatient?.profilePictureUrl ? (
+              <AvatarImage src={selectedPatient.profilePictureUrl} alt={`${selectedPatient.firstName} ${selectedPatient.lastName}`} />
+            ) : (
+              getInitials(`${selectedPatient?.firstName || ''} ${selectedPatient?.lastName || ''}`)
+            )}
+          </HeaderAvatar>
+          <HeaderInfo>
+            <HeaderName>{selectedPatient?.firstName} {selectedPatient?.lastName}</HeaderName>
+            <HeaderStatus>
               {loading ? 'Connecting...' : conversation ? 'Connected' : 'Not connected'}
-            </div>
-          </div>
+            </HeaderStatus>
+          </HeaderInfo>
         </ChatHeader>
 
         <ChatMessages>
@@ -662,45 +729,56 @@ client.getConversationByUniqueName('${uniqueName}')
 
           {messages.map((message) => (
             <MessageContainer key={message.id} isProvider={message.author === currentUser?.uid}>
-              <Message isProvider={message.author === currentUser?.uid}>
-                {message.videoPreview && !message.isVideoThumbnailLoaded ? message.body : message.displayText}
-                {message.videoPreview && (
-                  <VideoPreview onClick={() => handleVideoClick(message.videoPreview!.url)}>
-                    <VideoThumbnail 
-                      src={message.videoPreview.thumbnailUrl} 
-                      alt={message.videoPreview.title || 'Video thumbnail'} 
-                      onLoad={() => {
-                        setMessages(prevMessages => 
-                          prevMessages.map(msg => 
-                            msg.id === message.id 
-                              ? { ...msg, isVideoThumbnailLoaded: true }
-                              : msg
-                          )
-                        );
-                      }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = message.videoPreview?.provider === 'youtube' 
-                          ? 'https://img.youtube.com/vi/default/maxresdefault.jpg'
-                          : 'https://i.vimeocdn.com/video/default.jpg';
-                        setMessages(prevMessages => 
-                          prevMessages.map(msg => 
-                            msg.id === message.id 
-                              ? { ...msg, isVideoThumbnailLoaded: false }
-                              : msg
-                          )
-                        );
-                      }}
-                    />
-                    {message.videoPreview.title && (
-                      <VideoTitle>{message.videoPreview.title}</VideoTitle>
-                    )}
-                  </VideoPreview>
-                )}
-              </Message>
-              <MessageTime isProvider={message.author === currentUser?.uid}>
-                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </MessageTime>
+              {message.author !== currentUser?.uid && (
+                <MessageAvatar hasImage={!!selectedPatient?.profilePictureUrl}>
+                  {selectedPatient?.profilePictureUrl ? (
+                    <AvatarImage src={selectedPatient.profilePictureUrl} alt={`${selectedPatient.firstName} ${selectedPatient.lastName}`} />
+                  ) : (
+                    getInitials(`${selectedPatient?.firstName || ''} ${selectedPatient?.lastName || ''}`)
+                  )}
+                </MessageAvatar>
+              )}
+              <MessageContent>
+                <Message isProvider={message.author === currentUser?.uid}>
+                  {message.videoPreview && !message.isVideoThumbnailLoaded ? message.body : message.displayText}
+                  {message.videoPreview && (
+                    <VideoPreview onClick={() => handleVideoClick(message.videoPreview!.url)}>
+                      <VideoThumbnail 
+                        src={message.videoPreview.thumbnailUrl} 
+                        alt={message.videoPreview.title || 'Video thumbnail'} 
+                        onLoad={() => {
+                          setMessages(prevMessages => 
+                            prevMessages.map(msg => 
+                              msg.id === message.id 
+                                ? { ...msg, isVideoThumbnailLoaded: true }
+                                : msg
+                            )
+                          );
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = message.videoPreview?.provider === 'youtube' 
+                            ? 'https://img.youtube.com/vi/default/maxresdefault.jpg'
+                            : 'https://i.vimeocdn.com/video/default.jpg';
+                          setMessages(prevMessages => 
+                            prevMessages.map(msg => 
+                              msg.id === message.id 
+                                ? { ...msg, isVideoThumbnailLoaded: false }
+                                : msg
+                            )
+                          );
+                        }}
+                      />
+                      {message.videoPreview.title && (
+                        <VideoTitle>{message.videoPreview.title}</VideoTitle>
+                      )}
+                    </VideoPreview>
+                  )}
+                </Message>
+                <MessageTime isProvider={message.author === currentUser?.uid}>
+                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </MessageTime>
+              </MessageContent>
             </MessageContainer>
           ))}
           <div ref={messagesEndRef} />

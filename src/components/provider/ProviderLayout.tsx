@@ -10,6 +10,7 @@ interface PatientData {
   firstName: string;
   lastName: string;
   email: string;
+  profilePictureUrl?: string;
 }
 
 export const SelectedPatientContext = createContext<{
@@ -61,16 +62,23 @@ const ProfileButton = styled.button`
   }
 `;
 
-const Avatar = styled.div`
+const Avatar = styled.div<{ hasImage?: boolean }>`
   width: 2rem;
   height: 2rem;
-  background: #fef9c3;
+  background: ${props => props.hasImage ? 'transparent' : '#fef9c3'};
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 500;
   color: #854d0e;
+  overflow: hidden;
+`;
+
+const AvatarImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `;
 
 const ProfileMenu = styled.div<{ isOpen: boolean }>`
@@ -136,7 +144,36 @@ const ProviderLayout = () => {
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profilePicUrl, setProfilePicUrl] = useState<string>('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser) return;
+
+      try {
+        const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+
+        const { success, data } = await response.json();
+        if (success && data) {
+          setProfilePicUrl(data.profilePictureUrl || '');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        toast.error('Failed to load user data');
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -220,7 +257,13 @@ const ProviderLayout = () => {
                 ))}
               </PatientSelect>
               <ProfileButton onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
-                <Avatar>{currentUser.email ? getInitials(currentUser.email) : 'U'}</Avatar>
+                <Avatar hasImage={!!profilePicUrl}>
+                  {profilePicUrl ? (
+                    <AvatarImage src={profilePicUrl} alt="Profile" />
+                  ) : (
+                    currentUser.email ? getInitials(currentUser.email) : 'U'
+                  )}
+                </Avatar>
               </ProfileButton>
             </HeaderContent>
             <ProfileMenu isOpen={isProfileMenuOpen}>

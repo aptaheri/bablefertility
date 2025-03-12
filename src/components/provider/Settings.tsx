@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { FaCamera, FaTrash } from 'react-icons/fa';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -70,6 +71,117 @@ const WarningText = styled.p`
   font-size: 0.875rem;
 `;
 
+const ProfileSection = styled(Section)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+`;
+
+const AvatarContainer = styled.div`
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: visible;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const Avatar = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+`;
+
+const AvatarPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+`;
+
+const UploadButton = styled.button`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #FFD700;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  transform: translate(0, -10%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    background: #ffd900;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: #000000;
+  }
+
+  &:disabled {
+    background: #e5e7eb;
+    cursor: not-allowed;
+    
+    svg {
+      color: #9ca3af;
+    }
+  }
+`;
+
+const HiddenInput = styled.input`
+  display: none;
+`;
+
+const ProfileActions = styled.div`
+  display: flex;
+  gap: 1rem;
+`;
+
+const Button = styled.button`
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+  }
+`;
+
+const DeleteProfilePicButton = styled(Button)`
+  background: #ef4444;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: #dc2626;
+  }
+`;
+
 interface Patient {
   id: string;
   firstName: string;
@@ -93,8 +205,54 @@ const Settings = () => {
   const [selectedProviderId, setSelectedProviderId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [providerLoading, setProviderLoading] = useState(false);
+  const [profilePicLoading, setProfilePicLoading] = useState(false);
+  const [profilePicUrl, setProfilePicUrl] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser) return;
+
+      try {
+        // Debug logging
+        const token = await currentUser.getIdToken();
+        console.log('Debug - /api/users/me request:', {
+          url: 'https://bable-be-300594224442.us-central1.run.app/api/users/me',
+          token: token
+        });
+        console.log('\nTest API endpoint with:\n');
+        console.log(`curl -v "https://bable-be-300594224442.us-central1.run.app/api/users/me" \\
+  -H "Authorization: Bearer ${token}"`);
+
+        const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          },
+        });
+
+        // Debug logging
+        console.log('Debug - /api/users/me response:', {
+          status: response.status,
+          ok: response.ok,
+          statusText: response.statusText
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          console.error('Debug - /api/users/me error data:', errorData);
+          throw new Error('Failed to fetch user data');
+        }
+
+        const { success, data } = await response.json();
+        if (success && data) {
+          setProfilePicUrl(data.profilePictureUrl || '');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        toast.error('Failed to load user data');
+      }
+    };
+
     const fetchPatients = async () => {
       if (!currentUser) return;
 
@@ -143,6 +301,7 @@ const Settings = () => {
       }
     };
 
+    fetchUserData();
     fetchPatients();
     fetchProviders();
   }, [currentUser]);
@@ -201,9 +360,143 @@ const Settings = () => {
     }
   };
 
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPEG or PNG image.');
+      return;
+    }
+
+    // Validate file size (5MB = 5 * 1024 * 1024 bytes)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File is too large. Maximum size is 5MB.');
+      return;
+    }
+
+    try {
+      setProfilePicLoading(true);
+
+      // Get the token once to avoid multiple calls
+      const firebaseIdToken = await currentUser.getIdToken();
+
+      // Get upload URL
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/profile-picture/upload-url', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${firebaseIdToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileType: file.type // Should be 'image/jpeg', 'image/png', or 'image/jpg'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to get upload URL:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to get upload URL');
+      }
+
+      const { uploadUrl, downloadUrl } = await response.json();
+      console.log('Upload URL response:', { uploadUrl, downloadUrl }); // Debug log
+
+      // Upload the file to the provided URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Failed to upload image' }));
+        throw new Error(errorData.details || errorData.error || 'Failed to upload image');
+      }
+
+      // Set the profile picture URL directly from the downloadUrl
+      setProfilePicUrl(downloadUrl);
+      toast.success('Profile picture updated successfully');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update profile picture');
+    } finally {
+      setProfilePicLoading(false);
+    }
+  };
+
+  const handleDeleteProfilePicture = async () => {
+    if (!currentUser) return;
+
+    try {
+      setProfilePicLoading(true);
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/profile-picture', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to delete profile picture');
+      }
+
+      setProfilePicUrl('');
+      toast.success('Profile picture deleted successfully');
+    } catch (error) {
+      console.error('Error deleting profile picture:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete profile picture');
+    } finally {
+      setProfilePicLoading(false);
+    }
+  };
+
   return (
     <PageContainer>
       <PageTitle>Settings</PageTitle>
+      
+      <ProfileSection>
+        <SectionTitle>Profile Picture</SectionTitle>
+        <AvatarContainer>
+          {profilePicUrl ? (
+            <Avatar src={profilePicUrl} alt="Profile" />
+          ) : (
+            <AvatarPlaceholder>
+              {currentUser?.email ? currentUser.email[0].toUpperCase() : 'U'}
+            </AvatarPlaceholder>
+          )}
+          <UploadButton
+            onClick={() => fileInputRef.current?.click()}
+            disabled={profilePicLoading}
+            title="Upload new picture"
+          >
+            <FaCamera />
+          </UploadButton>
+          <HiddenInput
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            onChange={handleFileSelect}
+          />
+        </AvatarContainer>
+
+        {profilePicUrl && (
+          <ProfileActions>
+            <DeleteProfilePicButton
+              onClick={handleDeleteProfilePicture}
+              disabled={profilePicLoading}
+            >
+              <FaTrash /> Remove Picture
+            </DeleteProfilePicButton>
+          </ProfileActions>
+        )}
+      </ProfileSection>
       
       <DangerZone>
         <DangerZoneTitle>Danger Zone</DangerZoneTitle>
