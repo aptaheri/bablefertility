@@ -305,7 +305,7 @@ const Settings = () => {
     fetchUserData();
     fetchPatients();
     fetchProviders();
-  }, [currentUser]);
+  }, [currentUser, setProfilePicUrl]);
 
   const handleDeletePatient = async () => {
     if (!selectedPatientId || !currentUser) return;
