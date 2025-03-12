@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ProfileProvider } from './contexts/ProfileContext';
 import Nav from './components/Nav';
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
@@ -64,7 +65,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <ProfileProvider>
+          <AppContent />
+        </ProfileProvider>
       </AuthProvider>
     </Router>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProfile } from '../../contexts/ProfileContext';
 import { toast } from 'react-toastify';
 import { FaCamera, FaTrash } from 'react-icons/fa';
 
@@ -199,6 +200,7 @@ interface Provider {
 
 const Settings = () => {
   const { currentUser } = useAuth();
+  const { profilePicUrl, setProfilePicUrl } = useProfile();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
@@ -206,7 +208,6 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [providerLoading, setProviderLoading] = useState(false);
   const [profilePicLoading, setProfilePicLoading] = useState(false);
-  const [profilePicUrl, setProfilePicUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -385,41 +386,40 @@ const Settings = () => {
       const firebaseIdToken = await currentUser.getIdToken();
 
       // Get upload URL
-      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/profile-picture/upload-url', {
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/profile-picture/upload-url', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${firebaseIdToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          fileType: file.type // Should be 'image/jpeg', 'image/png', or 'image/jpg'
+          fileType: file.type
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Failed to get upload URL:', errorData);
         throw new Error(errorData.details || errorData.error || 'Failed to get upload URL');
       }
 
       const { uploadUrl, downloadUrl } = await response.json();
-      console.log('Upload URL response:', { uploadUrl, downloadUrl }); // Debug log
+      console.log('Upload URL received:', uploadUrl); // Debug log
 
       // Upload the file to the provided URL
+      // Important: Only include Content-Type header, no other headers
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
-        body: file,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': file.type
         },
+        body: file
       });
 
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json().catch(() => ({ error: 'Failed to upload image' }));
-        throw new Error(errorData.details || errorData.error || 'Failed to upload image');
+        throw new Error(`Failed to upload image: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
-      // Set the profile picture URL directly from the downloadUrl
+      // Update profile picture URL in the context
       setProfilePicUrl(downloadUrl);
       toast.success('Profile picture updated successfully');
     } catch (error) {
@@ -427,6 +427,10 @@ const Settings = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to update profile picture');
     } finally {
       setProfilePicLoading(false);
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 

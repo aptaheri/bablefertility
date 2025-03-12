@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProfile } from '../../contexts/ProfileContext';
 import ProviderSidebar from './ProviderSidebar';
 import styled from '@emotion/styled';
 import { toast } from 'react-toastify';
@@ -81,6 +82,16 @@ const AvatarImage = styled.img`
   object-fit: cover;
 `;
 
+const AvatarPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+`;
+
 const ProfileMenu = styled.div<{ isOpen: boolean }>`
   position: absolute;
   top: calc(100% + 0.5rem);
@@ -140,11 +151,12 @@ const HeaderContent = styled.div`
 
 const ProviderLayout = () => {
   const { currentUser, logout } = useAuth();
+  const { profilePicUrl, setProfilePicUrl } = useProfile();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profilePicUrl, setProfilePicUrl] = useState<string>('');
+  const [userDataLoading, setUserDataLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -152,6 +164,7 @@ const ProviderLayout = () => {
       if (!currentUser) return;
 
       try {
+        setUserDataLoading(true);
         const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
           headers: {
             'Authorization': `Bearer ${await currentUser.getIdToken()}`,
@@ -169,11 +182,13 @@ const ProviderLayout = () => {
       } catch (error) {
         console.error('Error fetching user data:', error);
         toast.error('Failed to load user data');
+      } finally {
+        setUserDataLoading(false);
       }
     };
 
     fetchUserData();
-  }, [currentUser]);
+  }, [currentUser, setProfilePicUrl]);
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -228,8 +243,13 @@ const ProviderLayout = () => {
     }
   };
 
-  const getInitials = (email: string) => {
-    return email.split('@')[0].slice(0, 2).toUpperCase();
+  const getInitials = (email: string | null) => {
+    if (!email) return 'U';
+    const parts = email.split('@')[0].split(/[._-]/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email[0].toUpperCase();
   };
 
   const handlePatientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -258,17 +278,21 @@ const ProviderLayout = () => {
               </PatientSelect>
               <ProfileButton onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}>
                 <Avatar hasImage={!!profilePicUrl}>
-                  {profilePicUrl ? (
+                  {userDataLoading ? (
+                    <AvatarPlaceholder>...</AvatarPlaceholder>
+                  ) : profilePicUrl ? (
                     <AvatarImage src={profilePicUrl} alt="Profile" />
                   ) : (
-                    currentUser.email ? getInitials(currentUser.email) : 'U'
+                    <AvatarPlaceholder>
+                      {getInitials(currentUser?.email)}
+                    </AvatarPlaceholder>
                   )}
                 </Avatar>
               </ProfileButton>
             </HeaderContent>
             <ProfileMenu isOpen={isProfileMenuOpen}>
               <UserInfo>
-                <h3>{currentUser.email}</h3>
+                <h3>{currentUser?.email}</h3>
                 <p>Provider</p>
               </UserInfo>
               <MenuItem onClick={handleLogout}>Logout</MenuItem>
