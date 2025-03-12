@@ -183,6 +183,24 @@ const DeleteProfilePicButton = styled(Button)`
   }
 `;
 
+const Input = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: white;
+`;
+
+const UpdateButton = styled(Button)`
+  background: #4f46e5;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: #4338ca;
+  }
+`;
+
 interface Patient {
   id: string;
   firstName: string;
@@ -208,6 +226,9 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [providerLoading, setProviderLoading] = useState(false);
   const [profilePicLoading, setProfilePicLoading] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [nameUpdateLoading, setNameUpdateLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -215,38 +236,21 @@ const Settings = () => {
       if (!currentUser) return;
 
       try {
-        // Debug logging
-        const token = await currentUser.getIdToken();
-        console.log('Debug - /api/users/me request:', {
-          url: 'https://bable-be-300594224442.us-central1.run.app/api/users/me',
-          token: token
-        });
-        console.log('\nTest API endpoint with:\n');
-        console.log(`curl -v "https://bable-be-300594224442.us-central1.run.app/api/users/me" \\
-  -H "Authorization: Bearer ${token}"`);
-
         const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
           headers: {
             'Authorization': `Bearer ${await currentUser.getIdToken()}`,
           },
         });
 
-        // Debug logging
-        console.log('Debug - /api/users/me response:', {
-          status: response.status,
-          ok: response.ok,
-          statusText: response.statusText
-        });
-
         if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          console.error('Debug - /api/users/me error data:', errorData);
           throw new Error('Failed to fetch user data');
         }
 
         const { success, data } = await response.json();
         if (success && data) {
           setProfilePicUrl(data.profilePictureUrl || '');
+          setFirstName(data.firstName || '');
+          setLastName(data.lastName || '');
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -361,9 +365,50 @@ const Settings = () => {
     }
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImagePick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !currentUser) return;
+    if (file) {
+      await handleFileUpload(file);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!currentUser || !firstName.trim() || !lastName.trim()) return;
+
+    try {
+      setNameUpdateLoading(true);
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/update-name', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(errorData.details || errorData.error || 'Failed to update name');
+      }
+
+      toast.success('Name updated successfully');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update name');
+    } finally {
+      setNameUpdateLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!currentUser) return;
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -381,11 +426,10 @@ const Settings = () => {
 
     try {
       setProfilePicLoading(true);
+      console.log('Getting upload URL...');
 
-      // Get the token once to avoid multiple calls
       const firebaseIdToken = await currentUser.getIdToken();
-
-      // Get upload URL
+      
       const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/profile-picture/upload-url', {
         method: 'POST',
         headers: {
@@ -393,20 +437,20 @@ const Settings = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          fileType: file.type
+          fileType: file.type,
+          fileName: file.name
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || errorData.error || 'Failed to get upload URL');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        console.error('Upload error details:', errorData);
+        throw new Error(errorData.details || errorData.error || `Failed to get upload URL: ${response.status}`);
       }
 
       const { uploadUrl, downloadUrl } = await response.json();
-      console.log('Upload URL received:', uploadUrl); // Debug log
+      console.log('Upload URL received:', uploadUrl);
 
-      // Upload the file to the provided URL
-      // Important: Only include Content-Type header, no other headers
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
@@ -416,10 +460,12 @@ const Settings = () => {
       });
 
       if (!uploadResponse.ok) {
+        console.error('Upload response:', uploadResponse);
         throw new Error(`Failed to upload image: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
-      // Update profile picture URL in the context
+      console.log('File uploaded successfully');
+      
       setProfilePicUrl(downloadUrl);
       toast.success('Profile picture updated successfully');
     } catch (error) {
@@ -427,10 +473,6 @@ const Settings = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to update profile picture');
     } finally {
       setProfilePicLoading(false);
-      // Reset the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
@@ -476,17 +518,17 @@ const Settings = () => {
             </AvatarPlaceholder>
           )}
           <UploadButton
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleImagePick}
             disabled={profilePicLoading}
             title="Upload new picture"
           >
             <FaCamera />
           </UploadButton>
           <HiddenInput
-            ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png"
-            onChange={handleFileSelect}
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
           />
         </AvatarContainer>
 
@@ -501,6 +543,28 @@ const Settings = () => {
           </ProfileActions>
         )}
       </ProfileSection>
+
+      <Section>
+        <SectionTitle>Update Name</SectionTitle>
+        <Input
+          type="text"
+          placeholder="First Name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+        />
+        <Input
+          type="text"
+          placeholder="Last Name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+        />
+        <UpdateButton
+          onClick={handleUpdateName}
+          disabled={nameUpdateLoading || !firstName.trim() || !lastName.trim()}
+        >
+          {nameUpdateLoading ? 'Updating...' : 'Update Name'}
+        </UpdateButton>
+      </Section>
       
       <DangerZone>
         <DangerZoneTitle>Danger Zone</DangerZoneTitle>
