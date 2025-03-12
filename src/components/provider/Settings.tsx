@@ -386,7 +386,7 @@ const Settings = () => {
       const firebaseIdToken = await currentUser.getIdToken();
 
       // Get upload URL
-      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/profile-picture/upload-url', {
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/profile-picture/upload-url', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${firebaseIdToken}`,
