@@ -31,10 +31,9 @@ const Footer = () => {
               flexDirection: 'column',
               gap: '0.5rem'
             }}>
-              <a href="mailto:info@bable.com" style={{ color: 'white', textDecoration: 'none' }}>
-                info@bable.com
+              <a href="mailto:info@bablefertility.com" style={{ color: 'white', textDecoration: 'none' }}>
+                info@bablefertility.com
               </a>
-              <span>(555)-555-5555</span>
             </div>
           </div>
 
