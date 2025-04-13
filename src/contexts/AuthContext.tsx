@@ -33,16 +33,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signup(email: string, password: string, type: UserType) {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    // Here you would typically store the user type in your database
     setUserType(type);
     return result;
   }
 
   async function login(email: string, password: string) {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    // Get the ID token
-    const idToken = await result.user.getIdToken();
-    console.log('ID Token:', idToken);
+    
+    // Fetch user data from backend to get user type
+    try {
+      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
+        headers: {
+          'Authorization': `Bearer ${await result.user.getIdToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+
+      const { success, data } = await response.json();
+      if (success && data) {
+        // Convert backend role to our UserType
+        const type: UserType = data.role === 'ADMIN' ? 'admin' : 
+                              data.role === 'NURSE' ? 'provider' : 'patient';
+        setUserType(type);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+
     return result;
   }
 
@@ -52,8 +72,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        try {
+          const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/users/me', {
+            headers: {
+              'Authorization': `Bearer ${await user.getIdToken()}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch user data');
+          }
+
+          const { success, data } = await response.json();
+          if (success && data) {
+            const type: UserType = data.role === 'ADMIN' ? 'admin' : 
+                                  data.role === 'NURSE' ? 'provider' : 'patient';
+            setUserType(type);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
       setLoading(false);
     });
 
