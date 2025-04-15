@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../../firebase';
 
 const ManagementSection = styled.div`
   background: #f8fafc;
@@ -179,48 +181,21 @@ const StageDefinitionManagement = () => {
   const [managementLoading, setManagementLoading] = useState(false);
   const [selectedStageDefinition, setSelectedStageDefinition] = useState<StageDefinition | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [protocolsLoading, setProtocolsLoading] = useState(false);
-  const [protocolsError, setProtocolsError] = useState<string | null>(null);
 
   const fetchProtocols = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      setProtocolsLoading(true);
-      setProtocolsError(null);
-      
-      const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/protocols', {
-        headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-        throw new Error(`Failed to fetch protocols: ${errorData.error || response.statusText}`);
-      }
-
-      const rawResponse = await response.text();
-      let data;
-      try {
-        data = JSON.parse(rawResponse);
-      } catch (e) {
-        throw new Error('Invalid JSON response from server');
-      }
-
-      const protocolsData = Array.isArray(data) ? data : data?.data;
-      
-      if (Array.isArray(protocolsData)) {
-        setProtocols(protocolsData);
-      } else {
-        throw new Error('Unexpected response format from server');
-      }
+      const protocolsRef = collection(db, 'protocols');
+      const q = query(protocolsRef, where('userId', '==', currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      const protocolsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Protocol[];
+      setProtocols(protocolsData);
     } catch (error) {
-      console.error('Error fetching protocols:', error);
-      setProtocolsError(error instanceof Error ? error.message : 'Failed to load protocols');
       toast.error(error instanceof Error ? error.message : 'Failed to load protocols');
-    } finally {
-      setProtocolsLoading(false);
     }
   }, [currentUser]);
 
