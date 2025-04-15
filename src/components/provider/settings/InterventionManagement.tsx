@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -174,7 +174,7 @@ const InterventionManagement = () => {
   const [selectedIntervention, setSelectedIntervention] = useState<Intervention | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const fetchInterventions = async () => {
+  const fetchInterventions = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -214,11 +214,11 @@ const InterventionManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     fetchInterventions();
-  }, [currentUser]);
+  }, [currentUser, fetchInterventions]);
 
   const handleCreateIntervention = async () => {
     if (!currentUser || !newIntervention.name.trim()) return;

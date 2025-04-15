@@ -17,6 +17,7 @@ import PatientSummary from './components/provider/PatientSummary';
 import Schedule from './components/provider/Schedule';
 import Messaging from './components/provider/Messaging';
 import Settings from './components/provider/Settings';
+import Plan from './components/provider/Plan';
 import './App.css';
 
 function HomePage() {
@@ -48,6 +49,7 @@ function AppContent() {
         {/* Provider Routes */}
         <Route path="/provider" element={<ProviderLayout />}>
           <Route path="patients" element={<PatientSummary />} />
+          <Route path="plan" element={<Plan />} />
           <Route path="messaging" element={<Messaging />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="lab-results" element={<div>Lab Results (Coming Soon)</div>} />

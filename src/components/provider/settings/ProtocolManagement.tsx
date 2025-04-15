@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -193,7 +193,7 @@ const ProtocolManagement = () => {
   const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const fetchInterventions = async () => {
+  const fetchInterventions = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -233,9 +233,9 @@ const ProtocolManagement = () => {
     } finally {
       setInterventionsLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  const fetchProtocols = async () => {
+  const fetchProtocols = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -275,12 +275,12 @@ const ProtocolManagement = () => {
     } finally {
       setProtocolsLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     fetchInterventions();
     fetchProtocols();
-  }, [currentUser]);
+  }, [currentUser, fetchInterventions, fetchProtocols]);
 
   const handleCreateProtocol = async () => {
     if (!currentUser || !newProtocol.name.trim() || !newProtocol.interventionId) return;

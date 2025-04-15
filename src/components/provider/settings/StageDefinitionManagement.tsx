@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -171,8 +171,6 @@ interface StageDefinition {
 const StageDefinitionManagement = () => {
   const { currentUser } = useAuth();
   const [protocols, setProtocols] = useState<Protocol[]>([]);
-  const [protocolsLoading, setProtocolsLoading] = useState(false);
-  const [protocolsError, setProtocolsError] = useState<string | null>(null);
   const [stageDefinitions, setStageDefinitions] = useState<StageDefinition[]>([]);
   const [stageDefinitionsLoading, setStageDefinitionsLoading] = useState(false);
   const [stageDefinitionsError, setStageDefinitionsError] = useState<string | null>(null);
@@ -181,8 +179,10 @@ const StageDefinitionManagement = () => {
   const [managementLoading, setManagementLoading] = useState(false);
   const [selectedStageDefinition, setSelectedStageDefinition] = useState<StageDefinition | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [protocolsLoading, setProtocolsLoading] = useState(false);
+  const [protocolsError, setProtocolsError] = useState<string | null>(null);
 
-  const fetchProtocols = async () => {
+  const fetchProtocols = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -222,9 +222,9 @@ const StageDefinitionManagement = () => {
     } finally {
       setProtocolsLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  const fetchStageDefinitions = async () => {
+  const fetchStageDefinitions = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -264,12 +264,12 @@ const StageDefinitionManagement = () => {
     } finally {
       setStageDefinitionsLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     fetchProtocols();
     fetchStageDefinitions();
-  }, [currentUser]);
+  }, [currentUser, fetchProtocols, fetchStageDefinitions]);
 
   const validateJsonInput = (input: string): StageDefinition | null => {
     try {

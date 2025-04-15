@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaCog } from 'react-icons/fa';
+import { FaCog, FaClipboardList } from 'react-icons/fa';
 
 const SidebarContainer = styled.nav`
   width: 250px;
@@ -89,6 +89,11 @@ const ProviderSidebar = () => {
         <NavItem>
           <StyledNavLink to="/provider/patients">
             Patient Summary
+          </StyledNavLink>
+        </NavItem>
+        <NavItem>
+          <StyledNavLink to="/provider/plan">
+            <FaClipboardList /> Plan
           </StyledNavLink>
         </NavItem>
         <NavItem>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -82,7 +82,7 @@ const DangerZone = () => {
   const [loading, setLoading] = useState(false);
   const [providerLoading, setProviderLoading] = useState(false);
 
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -104,9 +104,9 @@ const DangerZone = () => {
       console.error('Error fetching patients:', error);
       toast.error('Failed to load patients');
     }
-  };
+  }, [currentUser]);
 
-  const fetchProviders = async () => {
+  const fetchProviders = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -128,12 +128,12 @@ const DangerZone = () => {
       console.error('Error fetching providers:', error);
       toast.error('Failed to load providers');
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     fetchPatients();
     fetchProviders();
-  }, [currentUser]);
+  }, [currentUser, fetchPatients, fetchProviders]);
 
   const handleDeletePatient = async () => {
     if (!selectedPatientId || !currentUser) return;
