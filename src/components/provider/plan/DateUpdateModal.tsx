@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { format, parseISO, formatISO, fromUnixTime } from 'date-fns';
+import { formatISO, fromUnixTime } from 'date-fns';
 import {
   ModalOverlay,
   ModalContent,
