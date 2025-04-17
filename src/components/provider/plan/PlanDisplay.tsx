@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { format, fromUnixTime } from 'date-fns';
 import {
   PlanDisplay as PlanDisplayStyled,
@@ -46,18 +46,48 @@ interface PatientProtocol {
 interface PlanDisplayProps {
   patientProtocols: PatientProtocol[];
   loading: boolean;
-  onUpdateStageDate: (protocolId: string, stageId: string) => void;
-  onUpdateTaskDate: (protocolId: string, stageId: string, taskId: string) => void;
-  onUpdateEventDate: (protocolId: string, stageId: string, eventId: string) => void;
+  onUpdateStageDate: (protocol: PatientProtocol, stageId: string) => void;
+  onUpdateTask: (protocolId: string, stageId: string, taskId: string, taskData: {
+    name: string;
+    description: string;
+    dueDate: string;
+    type?: string;
+    priority?: string;
+    estimatedDuration?: number;
+  }) => void;
+  onEditEvent: (eventId: string) => void;
+  onDeleteStage: (protocolId: string, stageId: string) => void;
+  onDeleteTask: (protocolId: string, stageId: string, taskId: string) => void;
+  onDeleteEvent: (protocolId: string, stageId: string, eventId: string) => void;
 }
 
 const PlanDisplay: React.FC<PlanDisplayProps> = ({
   patientProtocols,
   loading,
   onUpdateStageDate,
-  onUpdateTaskDate,
-  onUpdateEventDate,
+  onUpdateTask,
+  onEditEvent,
+  onDeleteStage,
+  onDeleteTask,
+  onDeleteEvent,
 }) => {
+  useEffect(() => {
+    console.log('PlanDisplay received protocols:', patientProtocols.map(protocol => ({
+      id: protocol.id,
+      protocolId: protocol.protocolId,
+      stages: protocol.stages.map(stage => ({
+        id: stage.id,
+        name: stage.name,
+        order: stage.order,
+        startDate: stage.startDate
+      }))
+    })));
+
+    // Log a summary of all stage IDs
+    const allStageIds = patientProtocols.flatMap(p => p.stages.map(s => s.id));
+    console.log('All stage IDs in the system:', allStageIds);
+  }, [patientProtocols]);
+
   const formatDate = (dateValue: any) => {
     try {
       let date;
@@ -108,10 +138,13 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({
             <Stage
               key={stage.id}
               stage={stage}
-              protocolId={protocol.protocolId}
-              onUpdateStageDate={() => onUpdateStageDate(protocol.protocolId, stage.id)}
-              onUpdateTaskDate={(taskId) => onUpdateTaskDate(protocol.protocolId, stage.id, taskId)}
-              onUpdateEventDate={(eventId) => onUpdateEventDate(protocol.protocolId, stage.id, eventId)}
+              protocol={protocol}
+              onUpdateStageDate={() => onUpdateStageDate(protocol, stage.id)}
+              onUpdateTask={(taskId, taskData) => onUpdateTask(protocol.id, stage.id, taskId, taskData)}
+              onEditEvent={onEditEvent}
+              onDeleteStage={() => onDeleteStage(protocol.id, stage.id)}
+              onDeleteTask={(taskId) => onDeleteTask(protocol.id, stage.id, taskId)}
+              onDeleteEvent={(eventId) => onDeleteEvent(protocol.id, stage.id, eventId)}
             />
           ))}
         </StageContainer>

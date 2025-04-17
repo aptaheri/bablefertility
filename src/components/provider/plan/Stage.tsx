@@ -8,6 +8,7 @@ import {
   TasksList,
   EventsList,
   UpdateDateButton,
+  DeleteStageButton,
 } from './StyledComponents';
 import Task from './Task';
 import Event from './Event';
@@ -39,18 +40,61 @@ interface StageProps {
       recurrenceEndOffset?: number;
     }>;
   };
-  protocolId: string;
+  protocol: {
+    id: string;
+    protocolId: string;
+    createdAt: string | { _seconds: number; _nanoseconds: number };
+    stages: Array<{
+      id: string;
+      name: string;
+      order: number;
+      description?: string;
+      startDate: string | { _seconds: number; _nanoseconds: number };
+      isCompleted: boolean;
+      tasks: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        dueDate: string | { _seconds: number; _nanoseconds: number };
+        type?: string;
+        priority?: string;
+        estimatedDuration?: number;
+      }>;
+      events: Array<{
+        id: string;
+        title: string;
+        description: string;
+        startTime: string | { _seconds: number; _nanoseconds: number };
+        endTime: string | { _seconds: number; _nanoseconds: number };
+        recurrence?: string;
+        recurrenceEndOffset?: number;
+      }>;
+    }>;
+  };
   onUpdateStageDate: () => void;
-  onUpdateTaskDate: (taskId: string) => void;
-  onUpdateEventDate: (eventId: string) => void;
+  onUpdateTask: (taskId: string, taskData: {
+    name: string;
+    description: string;
+    dueDate: string;
+    type?: string;
+    priority?: string;
+    estimatedDuration?: number;
+  }) => void;
+  onEditEvent: (eventId: string) => void;
+  onDeleteStage: () => void;
+  onDeleteTask: (taskId: string) => void;
+  onDeleteEvent: (eventId: string) => void;
 }
 
 const Stage: React.FC<StageProps> = ({
   stage,
-  protocolId,
+  protocol,
   onUpdateStageDate,
-  onUpdateTaskDate,
-  onUpdateEventDate,
+  onUpdateTask,
+  onEditEvent,
+  onDeleteStage,
+  onDeleteTask,
+  onDeleteEvent,
 }) => {
   const formatDate = (dateValue: any) => {
     try {
@@ -89,6 +133,9 @@ const Stage: React.FC<StageProps> = ({
           <UpdateDateButton onClick={onUpdateStageDate}>
             Update Date
           </UpdateDateButton>
+          <DeleteStageButton onClick={onDeleteStage}>
+            Delete Stage
+          </DeleteStageButton>
         </div>
       </StageHeader>
       {stage.description && (
@@ -101,7 +148,8 @@ const Stage: React.FC<StageProps> = ({
           <Task
             key={task.id}
             task={task}
-            onUpdateDate={() => onUpdateTaskDate(task.id)}
+            onUpdate={(taskData) => onUpdateTask(task.id, taskData)}
+            onDelete={() => onDeleteTask(task.id)}
           />
         ))}
       </TasksList>
@@ -112,7 +160,8 @@ const Stage: React.FC<StageProps> = ({
           <Event
             key={event.id}
             event={event}
-            onUpdateDate={() => onUpdateEventDate(event.id)}
+            onEdit={() => onEditEvent(event.id)}
+            onDelete={() => onDeleteEvent(event.id)}
           />
         ))}
       </EventsList>

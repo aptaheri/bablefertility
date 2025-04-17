@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, fromUnixTime } from 'date-fns';
 import {
   TaskItem,
@@ -6,8 +6,10 @@ import {
   TaskTitle,
   TaskDescription,
   TaskMeta,
-  UpdateDateButton,
+  EditButton,
+  DeleteButton,
 } from './StyledComponents';
+import TaskEditModal from './TaskEditModal';
 
 interface TaskProps {
   task: {
@@ -19,10 +21,20 @@ interface TaskProps {
     priority?: string;
     estimatedDuration?: number;
   };
-  onUpdateDate: () => void;
+  onUpdate: (taskData: {
+    name: string;
+    description: string;
+    dueDate: string;
+    type?: string;
+    priority?: string;
+    estimatedDuration?: number;
+  }) => void;
+  onDelete: () => void;
 }
 
-const Task: React.FC<TaskProps> = ({ task, onUpdateDate }) => {
+const Task: React.FC<TaskProps> = ({ task, onUpdate, onDelete }) => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   const formatDate = (dateValue: any) => {
     try {
       let date;
@@ -52,25 +64,40 @@ const Task: React.FC<TaskProps> = ({ task, onUpdateDate }) => {
   };
 
   return (
-    <TaskItem>
-      <TaskHeader>
-        <TaskTitle>{task.name}</TaskTitle>
-        <div>
-          Due: {formatDate(task.dueDate)}
-          <UpdateDateButton onClick={onUpdateDate}>
-            Update Date
-          </UpdateDateButton>
-        </div>
-      </TaskHeader>
-      {task.description && (
-        <TaskDescription>{task.description}</TaskDescription>
-      )}
-      <TaskMeta>
-        {task.type && <span>Type: {task.type}</span>}
-        {task.priority && <span>Priority: {task.priority}</span>}
-        {task.estimatedDuration && <span>Duration: {task.estimatedDuration} minutes</span>}
-      </TaskMeta>
-    </TaskItem>
+    <>
+      <TaskItem>
+        <TaskHeader>
+          <TaskTitle>{task.name}</TaskTitle>
+          <div>
+            Due: {formatDate(task.dueDate)}
+            <EditButton onClick={() => setIsEditModalOpen(true)}>
+              Edit
+            </EditButton>
+            <DeleteButton onClick={onDelete}>
+              Delete
+            </DeleteButton>
+          </div>
+        </TaskHeader>
+        {task.description && (
+          <TaskDescription>{task.description}</TaskDescription>
+        )}
+        <TaskMeta>
+          {task.type && <span>Type: {task.type}</span>}
+          {task.priority && <span>Priority: {task.priority}</span>}
+          {task.estimatedDuration && <span>Duration: {task.estimatedDuration} minutes</span>}
+        </TaskMeta>
+      </TaskItem>
+
+      <TaskEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={(taskData) => {
+          onUpdate(taskData);
+          setIsEditModalOpen(false);
+        }}
+        initialData={task}
+      />
+    </>
   );
 };
 

@@ -2,8 +2,8 @@ import styled from '@emotion/styled';
 
 export const PlanContainer = styled.div`
   padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const Form = styled.form`
@@ -42,18 +42,20 @@ export const Select = styled.select`
 
 export const Input = styled.input`
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 1rem;
-  color: #374151;
-  background-color: white;
-  
-  &:focus {
-    outline: none;
-    border-color: #FFD900;
-    box-shadow: 0 0 0 2px rgba(255, 217, 0, 0.2);
-  }
+  border-radius: 4px;
+`;
+
+export const TextArea = styled.textarea`
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  min-height: 100px;
+  resize: vertical;
 `;
 
 export const Button = styled.button`
@@ -83,6 +85,8 @@ export const PlanDisplay = styled.div`
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const StageContainer = styled.div`
@@ -181,6 +185,40 @@ export const EventTime = styled.div`
   color: #64748b;
 `;
 
+export const EditButton = styled.button`
+  background-color: #4f46e5;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: 1rem;
+  
+  &:hover {
+    background-color: #4338ca;
+  }
+`;
+
+export const DeleteButton = styled.button`
+  background-color: #ef4444;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: 1rem;
+  
+  &:hover {
+    background-color: #dc2626;
+  }
+`;
+
 export const UpdateDateButton = styled.button`
   background-color: #FFD900;
   color: #1a1a1a;
@@ -195,6 +233,23 @@ export const UpdateDateButton = styled.button`
   
   &:hover {
     background-color: #e6c300;
+  }
+`;
+
+export const DeleteStageButton = styled.button`
+  background-color: #ef4444;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: 1rem;
+  
+  &:hover {
+    background-color: #dc2626;
   }
 `;
 

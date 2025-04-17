@@ -6,7 +6,8 @@ import {
   EventTitle,
   EventDescription,
   EventTime,
-  UpdateDateButton,
+  EditButton,
+  DeleteButton,
 } from './StyledComponents';
 
 interface EventProps {
@@ -19,10 +20,11 @@ interface EventProps {
     recurrence?: string;
     recurrenceEndOffset?: number;
   };
-  onUpdateDate: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-const Event: React.FC<EventProps> = ({ event, onUpdateDate }) => {
+const Event: React.FC<EventProps> = ({ event, onEdit, onDelete }) => {
   const formatDateTime = (dateValue: any) => {
     try {
       let date;
@@ -57,9 +59,12 @@ const Event: React.FC<EventProps> = ({ event, onUpdateDate }) => {
         <EventTitle>{event.title}</EventTitle>
         <div>
           {formatDateTime(event.startTime)} - {formatDateTime(event.endTime)}
-          <UpdateDateButton onClick={onUpdateDate}>
-            Update Date
-          </UpdateDateButton>
+          <EditButton onClick={onEdit}>
+            Edit
+          </EditButton>
+          <DeleteButton onClick={onDelete}>
+            Delete
+          </DeleteButton>
         </div>
       </EventHeader>
       <EventDescription>{event.description}</EventDescription>

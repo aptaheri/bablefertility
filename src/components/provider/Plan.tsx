@@ -6,6 +6,8 @@ import { PlanContainer } from './plan/StyledComponents';
 import PlanForm from './plan/PlanForm';
 import PlanDisplay from './plan/PlanDisplay';
 import DateUpdateModal from './plan/DateUpdateModal';
+import EventEditModal from './plan/EventEditModal';
+import { User } from 'firebase/auth';
 
 interface Intervention {
   id: string;
@@ -55,6 +57,11 @@ interface PatientProtocol {
   updatedAt: string;
 }
 
+// Add custom user type that includes role
+interface CustomUser extends User {
+  role?: string;
+}
+
 const Plan = () => {
   const { currentUser } = useAuth();
   const { selectedPatient } = useSelectedPatient();
@@ -72,6 +79,12 @@ const Plan = () => {
     itemId: string | null;
     protocolId: string | null;
     stageId: string | null;
+    title?: string;
+    description?: string;
+    startTime?: string;
+    endTime?: string;
+    recurrence?: string;
+    recurrenceEndOffset?: number;
   }>({
     isOpen: false,
     type: null,
@@ -80,8 +93,30 @@ const Plan = () => {
     stageId: null,
   });
 
+  const [eventModalState, setEventModalState] = useState<{
+    isOpen: boolean;
+    eventId: string | null;
+    protocolId: string | null;
+    stageId: string | null;
+    initialData?: {
+      title: string;
+      description: string;
+      startTime: string;
+      endTime: string;
+      recurrence?: string;
+      recurrenceEndOffset?: number;
+    };
+  }>({
+    isOpen: false,
+    eventId: null,
+    protocolId: null,
+    stageId: null,
+  });
+
+  const currentUserWithRole = currentUser as CustomUser | null;
+
   const fetchInterventions = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUserWithRole) return;
 
     try {
       setInterventionsLoading(true);
@@ -89,7 +124,7 @@ const Plan = () => {
       
       const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/interventions', {
         headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
         },
       });
 
@@ -120,10 +155,10 @@ const Plan = () => {
     } finally {
       setInterventionsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUserWithRole]);
 
   const fetchProtocols = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUserWithRole) return;
 
     try {
       setProtocolsLoading(true);
@@ -131,7 +166,7 @@ const Plan = () => {
       
       const response = await fetch('https://bable-be-300594224442.us-central1.run.app/api/protocols', {
         headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
         },
       });
 
@@ -162,17 +197,17 @@ const Plan = () => {
     } finally {
       setProtocolsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUserWithRole]);
 
   const fetchPatientProtocols = useCallback(async () => {
-    if (!currentUser || !selectedPatient) return;
+    if (!currentUserWithRole || !selectedPatient) return;
 
     try {
       setLoadingProtocols(true);
       console.log('Fetching patient protocols for patient:', selectedPatient.id);
       const response = await fetch(`https://bable-be-300594224442.us-central1.run.app/api/patients/${selectedPatient.id}/protocols`, {
         headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
         },
       });
 
@@ -200,29 +235,44 @@ const Plan = () => {
     } finally {
       setLoadingProtocols(false);
     }
-  }, [currentUser, selectedPatient]);
+  }, [currentUserWithRole, selectedPatient]);
 
   useEffect(() => {
-    fetchInterventions();
-    fetchProtocols();
-    fetchPatientProtocols();
-  }, [currentUser, fetchInterventions, fetchProtocols, fetchPatientProtocols]);
+    if (currentUserWithRole) {
+      fetchInterventions();
+      fetchProtocols();
+      fetchPatientProtocols();
+    }
+  }, [currentUserWithRole, fetchInterventions, fetchProtocols, fetchPatientProtocols]);
 
   const updateStageDates = async (date: string, updateRelated: boolean) => {
-    if (!currentUser || !selectedPatient || !modalState.protocolId || !modalState.stageId) return;
+    if (!currentUserWithRole || !selectedPatient || !modalState.protocolId || !modalState.stageId) return;
 
     try {
-      const protocol = patientProtocols.find(p => p.id === modalState.protocolId || p.protocolId === modalState.protocolId);
+      console.log('Updating stage dates with:', {
+        patientId: selectedPatient.id,
+        protocolId: modalState.protocolId,
+        stageId: modalState.stageId,
+        date,
+        updateRelated
+      });
+
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === modalState.stageId)
+      );
+      
       if (!protocol) {
         throw new Error('Protocol not found');
       }
 
       const url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${modalState.stageId}/dates`;
+      console.log('Making request to URL:', url);
       
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -233,6 +283,11 @@ const Plan = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         throw new Error(`Failed to update stage dates: ${errorData.error || response.statusText}`);
       }
 
@@ -245,26 +300,40 @@ const Plan = () => {
     }
   };
 
-  const updateTask = async (date: string) => {
-    if (!currentUser || !selectedPatient || !modalState.protocolId || !modalState.stageId || !modalState.itemId) return;
+  const updateTask = async (
+    protocolId: string,
+    stageId: string,
+    taskId: string,
+    taskData: {
+      name: string;
+      description: string;
+      dueDate: string;
+      type?: string;
+      priority?: string;
+      estimatedDuration?: number;
+    }
+  ) => {
+    if (!currentUserWithRole || !selectedPatient) return;
 
     try {
-      const protocol = patientProtocols.find(p => p.id === modalState.protocolId || p.protocolId === modalState.protocolId);
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === stageId)
+      );
+      
       if (!protocol) {
         throw new Error('Protocol not found');
       }
 
       const response = await fetch(
-        `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${modalState.stageId}/tasks/${modalState.itemId}`,
+        `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${stageId}/tasks/${taskId}`,
         {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+            'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            dueDate: date,
-          }),
+          body: JSON.stringify(taskData),
         }
       );
 
@@ -278,15 +347,18 @@ const Plan = () => {
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update task');
-      throw error;
     }
   };
 
   const updateEvent = async (date: string) => {
-    if (!currentUser || !selectedPatient || !modalState.protocolId || !modalState.stageId || !modalState.itemId) return;
+    if (!currentUserWithRole || !selectedPatient || !modalState.protocolId || !modalState.stageId || !modalState.itemId) return;
 
     try {
-      const protocol = patientProtocols.find(p => p.id === modalState.protocolId || p.protocolId === modalState.protocolId);
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === modalState.stageId)
+      );
+      
       if (!protocol) {
         throw new Error('Protocol not found');
       }
@@ -296,7 +368,7 @@ const Plan = () => {
         {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+            'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -326,7 +398,14 @@ const Plan = () => {
         await updateStageDates(date, updateRelated);
         break;
       case 'task':
-        await updateTask(date);
+        await updateTask(modalState.protocolId as string, modalState.stageId as string, modalState.itemId as string, {
+          name: '',
+          description: '',
+          dueDate: date,
+          type: '',
+          priority: '',
+          estimatedDuration: 0,
+        });
         break;
       case 'event':
         await updateEvent(date);
@@ -357,6 +436,312 @@ const Plan = () => {
     }
   };
 
+  const handleEditEvent = (eventId: string) => {
+    if (!selectedPatient) return;
+    
+    const protocol = patientProtocols.find(p => 
+      p.stages.some(s => s.events.some(e => e.id === eventId))
+    );
+    if (!protocol) return;
+
+    const stage = protocol.stages.find(s => s.events.some(e => e.id === eventId));
+    if (!stage) return;
+
+    const event = stage.events.find(e => e.id === eventId);
+    if (!event) return;
+
+    setEventModalState({
+      isOpen: true,
+      eventId,
+      protocolId: protocol.id,
+      stageId: stage.id,
+      initialData: {
+        title: event.title,
+        description: event.description,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        recurrence: event.recurrence,
+        recurrenceEndOffset: event.recurrenceEndOffset,
+      },
+    });
+  };
+
+  const handleSaveEvent = async (eventData: {
+    title: string;
+    description: string;
+    startTime: string;
+    endTime: string;
+    recurrence?: string;
+    recurrenceEndOffset?: number;
+  }) => {
+    if (!currentUser || !selectedPatient || !eventModalState.protocolId || !eventModalState.stageId || !eventModalState.eventId) return;
+
+    try {
+      const protocol = patientProtocols.find(p => p.id === eventModalState.protocolId);
+      if (!protocol) {
+        throw new Error('Protocol not found');
+      }
+
+      const response = await fetch(
+        `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${eventModalState.stageId}/events/${eventModalState.eventId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${await currentUser.getIdToken()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(eventData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(`Failed to update event: ${errorData.error || response.statusText}`);
+      }
+
+      await fetchPatientProtocols();
+      setEventModalState({ isOpen: false, eventId: null, protocolId: null, stageId: null });
+      toast.success('Event updated successfully');
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update event');
+    }
+  };
+
+  const handleDeleteTask = async (protocolId: string, stageId: string, taskId: string) => {
+    if (!currentUserWithRole || !selectedPatient) return;
+
+    try {
+      console.log('Attempting to delete task:', { protocolId, stageId, taskId });
+      console.log('Available protocols:', patientProtocols.map(p => ({
+        id: p.id,
+        protocolId: p.protocolId,
+        stages: p.stages.map(s => ({
+          id: s.id,
+          tasks: s.tasks.map(t => t.id)
+        }))
+      })));
+
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === stageId)
+      );
+      
+      if (!protocol) {
+        console.error('Protocol not found for stage:', stageId);
+        throw new Error('Protocol not found');
+      }
+
+      console.log('Found protocol:', {
+        id: protocol.id,
+        protocolId: protocol.protocolId,
+        stageCount: protocol.stages.length
+      });
+
+      // Try with protocol.id first
+      let url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${stageId}/tasks/${taskId}`;
+      console.log('Making request to URL:', url);
+
+      let response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+        },
+      });
+
+      // If that fails, try with protocol.protocolId
+      if (!response.ok) {
+        console.log('First attempt failed, trying with protocolId');
+        url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.protocolId}/stages/${stageId}/tasks/${taskId}`;
+        console.log('Making request to URL:', url);
+
+        response = await fetch(url, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+          },
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(`Failed to delete task: ${errorData.error || response.statusText}`);
+      }
+
+      await fetchPatientProtocols();
+      toast.success('Task deleted successfully');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete task');
+    }
+  };
+
+  const handleDeleteStage = async (protocolId: string, stageId: string) => {
+    if (!currentUserWithRole || !selectedPatient) return;
+
+    try {
+      console.log('Attempting to delete stage:', { 
+        protocolId, 
+        stageId,
+        patientId: selectedPatient.id 
+      });
+      
+      console.log('Available protocols:', patientProtocols.map(p => ({
+        id: p.id,
+        protocolId: p.protocolId,
+        stages: p.stages.map(s => ({
+          id: s.id,
+          name: s.name,
+          order: s.order,
+          startDate: s.startDate
+        }))
+      })));
+
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === stageId)
+      );
+      
+      if (!protocol) {
+        console.error('Protocol not found for stage:', {
+          stageId,
+          availableProtocols: patientProtocols.map(p => ({
+            id: p.id,
+            protocolId: p.protocolId,
+            stages: p.stages.map(s => s.id)
+          }))
+        });
+        throw new Error('Protocol not found');
+      }
+
+      const matchingStage = protocol.stages.find(s => s.id === stageId);
+      if (!matchingStage) {
+        console.error('Stage not found in protocol:', {
+          stageId,
+          protocolProtocolId: protocol.protocolId,
+          availableStages: protocol.stages.map(s => s.id)
+        });
+        throw new Error('Stage not found in the selected protocol');
+      }
+
+      console.log('Found protocol and stage:', {
+        protocolId: protocol.id,
+        protocolProtocolId: protocol.protocolId,
+        stageCount: protocol.stages.length,
+        matchingStage: {
+          id: matchingStage.id,
+          name: matchingStage.name,
+          order: matchingStage.order,
+          startDate: matchingStage.startDate
+        }
+      });
+
+      // Try with protocol.id first
+      let url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${stageId}`;
+      console.log('Making request to URL:', url);
+
+      let response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+        },
+      });
+
+      // If that fails, try with protocol.protocolId
+      if (!response.ok) {
+        console.log('First attempt failed, trying with protocolId');
+        url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.protocolId}/stages/${stageId}`;
+        console.log('Making request to URL:', url);
+
+        response = await fetch(url, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+          },
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(`Failed to delete stage: ${errorData.error || response.statusText}`);
+      }
+
+      await fetchPatientProtocols();
+      toast.success('Stage deleted successfully');
+    } catch (error) {
+      console.error('Error deleting stage:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete stage');
+    }
+  };
+
+  const handleDeleteEvent = async (protocolId: string, stageId: string, eventId: string) => {
+    if (!currentUserWithRole || !selectedPatient) return;
+
+    try {
+      console.log('Attempting to delete event:', { protocolId, stageId, eventId });
+      console.log('Available protocols:', patientProtocols.map(p => ({
+        id: p.id,
+        protocolId: p.protocolId,
+        stages: p.stages.map(s => ({
+          id: s.id,
+          events: s.events.map(e => e.id)
+        }))
+      })));
+
+      // Find the protocol that contains the stage we're looking for
+      const protocol = patientProtocols.find(p => 
+        p.stages.some(s => s.id === stageId)
+      );
+      
+      if (!protocol) {
+        console.error('Protocol not found for stage:', stageId);
+        throw new Error('Protocol not found');
+      }
+
+      console.log('Found protocol:', {
+        id: protocol.id,
+        protocolId: protocol.protocolId,
+        stageCount: protocol.stages.length
+      });
+
+      // Try with protocol.id first
+      let url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.id}/stages/${stageId}/events/${eventId}`;
+      console.log('Making request to URL:', url);
+
+      let response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+        },
+      });
+
+      // If that fails, try with protocol.protocolId
+      if (!response.ok) {
+        console.log('First attempt failed, trying with protocolId');
+        url = `https://bable-be-300594224442.us-central1.run.app/api/patient-stages/${selectedPatient.id}/protocols/${protocol.protocolId}/stages/${stageId}/events/${eventId}`;
+        console.log('Making request to URL:', url);
+
+        response = await fetch(url, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${await currentUserWithRole.getIdToken()}`,
+          },
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(`Failed to delete event: ${errorData.error || response.statusText}`);
+      }
+
+      await fetchPatientProtocols();
+      toast.success('Event deleted successfully');
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete event');
+    }
+  };
+
   if (!selectedPatient) {
     return (
       <PlanContainer>
@@ -381,27 +766,20 @@ const Plan = () => {
       <PlanDisplay
         patientProtocols={patientProtocols}
         loading={loadingProtocols}
-        onUpdateStageDate={(protocolId, stageId) => setModalState({
-          isOpen: true,
-          type: 'stage',
-          itemId: stageId,
-          protocolId,
-          stageId,
-        })}
-        onUpdateTaskDate={(protocolId, stageId, taskId) => setModalState({
-          isOpen: true,
-          type: 'task',
-          itemId: taskId,
-          protocolId,
-          stageId,
-        })}
-        onUpdateEventDate={(protocolId, stageId, eventId) => setModalState({
-          isOpen: true,
-          type: 'event',
-          itemId: eventId,
-          protocolId,
-          stageId,
-        })}
+        onUpdateStageDate={(protocol, stageId) => {
+          setModalState({
+            isOpen: true,
+            type: 'stage',
+            itemId: stageId,
+            protocolId: protocol.protocolId,
+            stageId,
+          });
+        }}
+        onUpdateTask={updateTask}
+        onEditEvent={handleEditEvent}
+        onDeleteStage={handleDeleteStage}
+        onDeleteTask={handleDeleteTask}
+        onDeleteEvent={handleDeleteEvent}
       />
 
       <DateUpdateModal
@@ -412,8 +790,15 @@ const Plan = () => {
         initialDate={getInitialDate()}
         showUpdateRelated={modalState.type === 'stage'}
       />
+
+      <EventEditModal
+        isOpen={eventModalState.isOpen}
+        onClose={() => setEventModalState({ isOpen: false, eventId: null, protocolId: null, stageId: null })}
+        onSave={handleSaveEvent}
+        initialData={eventModalState.initialData}
+      />
     </PlanContainer>
   );
 };
 
-export default Plan; 
+export default Plan;
