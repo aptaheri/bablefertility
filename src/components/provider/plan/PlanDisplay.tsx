@@ -134,7 +134,10 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({
             <div>Created: {formatDate(protocol.createdAt)}</div>
           </StageHeader>
           
-          {protocol.stages.map((stage) => (
+          {protocol.stages
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((stage) => (
             <Stage
               key={stage.id}
               stage={stage}
