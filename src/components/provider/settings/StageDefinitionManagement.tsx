@@ -479,32 +479,34 @@ const StageDefinitionManagement = () => {
           ) : stageDefinitions.length === 0 ? (
             <div>No stage definitions found</div>
           ) : (
-            stageDefinitions.map((definition) => (
-              <StageDefinitionCard
-                key={definition.id}
-                selected={selectedStageDefinition?.id === definition.id}
-                onClick={() => handleSelectStageDefinition(definition)}
-              >
-                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                  {definition.name}
-                </div>
-                <div style={{ color: '#6b7280', marginBottom: '0.5rem' }}>
-                  {definition.description || 'No description provided'}
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
-                  Protocol: {protocols.find(p => p.id === definition.protocolId)?.name || 'Unknown'}
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
-                  Order: {definition.order}
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
-                  Tasks: {(definition.defaultTasks || []).length}
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
-                  Events: {(definition.defaultEvents || []).length}
-                </div>
-              </StageDefinitionCard>
-            ))
+            [...stageDefinitions]
+              .sort((a, b) => a.order - b.order)
+              .map((definition) => (
+                <StageDefinitionCard
+                  key={definition.id}
+                  selected={selectedStageDefinition?.id === definition.id}
+                  onClick={() => handleSelectStageDefinition(definition)}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                    {definition.name}
+                  </div>
+                  <div style={{ color: '#6b7280', marginBottom: '0.5rem' }}>
+                    {definition.description || 'No description provided'}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
+                    Protocol: {protocols.find(p => p.id === definition.protocolId)?.name || 'Unknown'}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
+                    Order: {definition.order}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
+                    Tasks: {(definition.defaultTasks || []).length}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#4b5563' }}>
+                    Events: {(definition.defaultEvents || []).length}
+                  </div>
+                </StageDefinitionCard>
+              ))
           )}
         </ScrollableContent>
       </ListContainer>
